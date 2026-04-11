@@ -438,10 +438,16 @@ const GLASS_STYLES = `
   .glass-textarea-wrap:focus-within .glass-textarea { box-shadow: inset 0 0.125em 0.125em oklch(from var(--foreground) l c h / 5%), inset 0 -0.125em 0.125em oklch(from var(--background) l c h / 50%), 0 0.15em 0.05em -0.1em oklch(from var(--foreground) l c h / 25%), 0 0 0.05em 0.1em inset oklch(from var(--background) l c h / 50%); }
   .glass-textarea::after { content: ""; position: absolute; z-index: 1; inset: 0; border-radius: 1rem; width: calc(100% + clamp(1px, 0.0625em, 4px)); height: calc(100% + clamp(1px, 0.0625em, 4px)); top: calc(0% - clamp(1px, 0.0625em, 4px) / 2); left: calc(0% - clamp(1px, 0.0625em, 4px) / 2); padding: clamp(1px, 0.0625em, 4px); box-sizing: border-box; background: conic-gradient(from var(--angle-1) at 50% 50%, oklch(from var(--foreground) l c h / 50%) 0%, transparent 5% 40%, oklch(from var(--foreground) l c h / 50%) 50%, transparent 60% 95%, oklch(from var(--foreground) l c h / 50%) 100%), linear-gradient(180deg, oklch(from var(--background) l c h / 50%), oklch(from var(--background) l c h / 50%)); mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude; pointer-events: none; }
   .glass-select { appearance: none; -webkit-appearance: none; }
-  .step-indicator-dot { width: 6px; height: 6px; border-radius: 9999px; transition: all 0.3s ease; }
-  .step-indicator-dot.active { width: 20px; background-color: oklch(from var(--foreground) l c h / 80%); }
-  .step-indicator-dot.done { background-color: oklch(from var(--foreground) l c h / 50%); }
-  .step-indicator-dot.upcoming { background-color: oklch(from var(--foreground) l c h / 20%); }
+  .stepper-bar { display: flex; align-items: center; gap: 0; background: linear-gradient(-75deg, oklch(from var(--background) l c h / 5%), oklch(from var(--background) l c h / 15%), oklch(from var(--background) l c h / 5%)); backdrop-filter: blur(8px); border-radius: 9999px; padding: 4px; position: relative; box-shadow: inset 0 0.125em 0.125em oklch(from var(--foreground) l c h / 5%), 0 0.25em 0.125em -0.125em oklch(from var(--foreground) l c h / 20%), 0 0 0 1px oklch(from var(--foreground) l c h / 10%); }
+  .stepper-step { display: flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 9999px; cursor: pointer; transition: all 0.3s cubic-bezier(0.25,1,0.5,1); font-size: 12px; font-weight: 500; white-space: nowrap; color: oklch(from var(--foreground) l c h / 35%); position: relative; }
+  .stepper-step:hover { color: oklch(from var(--foreground) l c h / 70%); }
+  .stepper-step.active { background: linear-gradient(-75deg, oklch(from var(--background) l c h / 12%), oklch(from var(--background) l c h / 28%), oklch(from var(--background) l c h / 12%)); color: oklch(from var(--foreground) l c h / 95%); box-shadow: inset 0 0.125em 0.125em oklch(from var(--foreground) l c h / 5%), 0 0.15em 0.25em oklch(from var(--foreground) l c h / 15%), 0 0 0 1px oklch(from var(--foreground) l c h / 12%); }
+  .stepper-step.done { color: oklch(from var(--foreground) l c h / 55%); }
+  .stepper-step.done:hover { color: oklch(from var(--foreground) l c h / 80%); }
+  .stepper-num { width: 18px; height: 18px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; background: oklch(from var(--foreground) l c h / 10%); transition: all 0.3s ease; }
+  .stepper-step.active .stepper-num { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+  .stepper-step.done .stepper-num { background: oklch(from var(--foreground) l c h / 20%); }
+  .stepper-divider { width: 16px; height: 1px; background: oklch(from var(--foreground) l c h / 12%); flex-shrink: 0; margin: 0 2px; }
 `;
 
 type OnboardingStep =
@@ -1011,7 +1017,12 @@ export function OnboardingFlow() {
     </AnimatePresence>
   );
 
-  const stepDots = STEPS.filter((s) => s !== "submitted");
+  const STEP_META: { id: OnboardingStep; label: string }[] = [
+    { id: "login", label: "Login" },
+    { id: "basics", label: "Profile" },
+    { id: "workExperience", label: "Experience" },
+    { id: "jobPreferences", label: "Preferences" },
+  ];
 
   return (
     <div className="bg-background min-h-screen w-screen flex flex-col">
@@ -1024,30 +1035,51 @@ export function OnboardingFlow() {
       />
       <Modal />
 
-      <div
-        className={cn(
-          "fixed top-4 left-4 z-20 flex items-center gap-2",
-          "md:left-1/2 md:-translate-x-1/2"
-        )}
-      >
+      <div className="fixed top-4 left-4 z-20 flex items-center gap-2">
         <MentorweLogo />
         <h1 className="text-base font-bold text-foreground">mentorwe</h1>
       </div>
 
-      {step !== "submitted" && step !== "login" && (
-        <div className="fixed top-4 right-4 z-20 flex items-center gap-1.5">
-          {stepDots.map((s, i) => (
-            <div
-              key={s}
-              className={cn("step-indicator-dot", {
-                active: s === step,
-                done: i < currentStepIndex,
-                upcoming: i > currentStepIndex,
-              })}
-            />
-          ))}
-        </div>
-      )}
+      <div className="fixed top-3 left-1/2 -translate-x-1/2 z-20">
+        <AnimatePresence>
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: "easeOut", delay: 0.2 }}
+            className="stepper-bar"
+          >
+            {STEP_META.map((s, i) => {
+              const stepIdx = STEPS.indexOf(s.id);
+              const isActive = step === s.id || (step === "submitted" && i === STEP_META.length - 1);
+              const isDone = currentStepIndex > stepIdx;
+              return (
+                <React.Fragment key={s.id}>
+                  {i > 0 && <div className="stepper-divider" />}
+                  <button
+                    type="button"
+                    onClick={() => setStep(s.id)}
+                    className={cn("stepper-step", {
+                      active: isActive,
+                      done: isDone && !isActive,
+                    })}
+                  >
+                    <span className="stepper-num">
+                      {isDone && !isActive ? (
+                        <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none">
+                          <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      ) : (
+                        i + 1
+                      )}
+                    </span>
+                    <span>{s.label}</span>
+                  </button>
+                </React.Fragment>
+              );
+            })}
+          </motion.div>
+        </AnimatePresence>
+      </div>
 
       <div
         className={cn(
