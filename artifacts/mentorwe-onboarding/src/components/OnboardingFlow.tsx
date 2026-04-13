@@ -43,6 +43,8 @@ import type {
   Options as ConfettiOptions,
 } from "canvas-confetti";
 import confetti from "canvas-confetti";
+import { ResumeRevampStep } from "../steps/ResumeRevampStep";
+import { BlurFade, GlassButton, TextLoop } from "./ui/OnboardingUI";
 
 type Api = { fire: (options?: ConfettiOptions) => void };
 export type ConfettiRef = Api | null;
@@ -92,178 +94,6 @@ const Confetti = forwardRef<
   return <canvas ref={canvasRef} {...rest} />;
 });
 Confetti.displayName = "Confetti";
-
-type TextLoopProps = {
-  children: React.ReactNode[];
-  className?: string;
-  interval?: number;
-  transition?: Transition;
-  variants?: Variants;
-  onIndexChange?: (index: number) => void;
-  stopOnEnd?: boolean;
-};
-function TextLoop({
-  children,
-  className,
-  interval = 2,
-  transition = { duration: 0.3 },
-  variants,
-  onIndexChange,
-  stopOnEnd = false,
-}: TextLoopProps) {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const items = Children.toArray(children);
-  useEffect(() => {
-    const intervalMs = interval * 1000;
-    const timer = setInterval(() => {
-      setCurrentIndex((current) => {
-        if (stopOnEnd && current === items.length - 1) {
-          clearInterval(timer);
-          return current;
-        }
-        const next = (current + 1) % items.length;
-        onIndexChange?.(next);
-        return next;
-      });
-    }, intervalMs);
-    return () => clearInterval(timer);
-  }, [items.length, interval, onIndexChange, stopOnEnd]);
-  const motionVariants: Variants = {
-    initial: { y: 20, opacity: 0 },
-    animate: { y: 0, opacity: 1 },
-    exit: { y: -20, opacity: 0 },
-  };
-  return (
-    <div className={cn("relative inline-block whitespace-nowrap", className)}>
-      <AnimatePresence mode="popLayout" initial={false}>
-        <motion.div
-          key={currentIndex}
-          initial="initial"
-          animate="animate"
-          exit="exit"
-          transition={transition}
-          variants={variants || motionVariants}
-        >
-          {items[currentIndex]}
-        </motion.div>
-      </AnimatePresence>
-    </div>
-  );
-}
-
-interface BlurFadeProps {
-  children: React.ReactNode;
-  className?: string;
-  variant?: { hidden: { y: number }; visible: { y: number } };
-  duration?: number;
-  delay?: number;
-  yOffset?: number;
-  inView?: boolean;
-  inViewMargin?: string;
-  blur?: string;
-}
-function BlurFade({
-  children,
-  className,
-  variant,
-  duration = 0.4,
-  delay = 0,
-  yOffset = 6,
-  inView = true,
-  inViewMargin = "-50px",
-  blur = "6px",
-}: BlurFadeProps) {
-  const ref = useRef(null);
-  const inViewResult = useInView(ref, { once: true, margin: inViewMargin });
-  const isInView = !inView || inViewResult;
-  const defaultVariants: Variants = {
-    hidden: { y: yOffset, opacity: 0, filter: `blur(${blur})` },
-    visible: { y: -yOffset, opacity: 1, filter: `blur(0px)` },
-  };
-  const combinedVariants = variant || defaultVariants;
-  return (
-    <motion.div
-      ref={ref}
-      initial="hidden"
-      animate={isInView ? "visible" : "hidden"}
-      exit="hidden"
-      variants={combinedVariants}
-      transition={{ delay: 0.04 + delay, duration, ease: "easeOut" }}
-      className={className}
-    >
-      {children}
-    </motion.div>
-  );
-}
-
-const glassButtonVariants = cva(
-  "relative isolate all-unset cursor-pointer rounded-full transition-all",
-  {
-    variants: {
-      size: {
-        default: "text-base font-medium",
-        sm: "text-sm font-medium",
-        lg: "text-lg font-medium",
-        icon: "h-10 w-10",
-      },
-    },
-    defaultVariants: { size: "default" },
-  }
-);
-const glassButtonTextVariants = cva(
-  "glass-button-text relative block select-none tracking-tighter",
-  {
-    variants: {
-      size: {
-        default: "px-6 py-3.5",
-        sm: "px-4 py-2",
-        lg: "px-8 py-4",
-        icon: "flex h-10 w-10 items-center justify-center",
-      },
-    },
-    defaultVariants: { size: "default" },
-  }
-);
-interface GlassButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof glassButtonVariants> {
-  contentClassName?: string;
-}
-const GlassButton = React.forwardRef<HTMLButtonElement, GlassButtonProps>(
-  ({ className, children, size, contentClassName, onClick, ...props }, ref) => {
-    const handleWrapperClick = (e: React.MouseEvent<HTMLDivElement>) => {
-      const button = e.currentTarget.querySelector("button");
-      if (button && e.target !== button) button.click();
-    };
-    return (
-      <div
-        className={cn(
-          "glass-button-wrap cursor-pointer rounded-full relative",
-          className
-        )}
-        onClick={handleWrapperClick}
-      >
-        <button
-          className={cn(
-            "glass-button relative z-10",
-            glassButtonVariants({ size })
-          )}
-          ref={ref}
-          onClick={onClick}
-          {...props}
-        >
-          <span
-            className={cn(glassButtonTextVariants({ size }), contentClassName)}
-          >
-            {children}
-          </span>
-        </button>
-        <div className="glass-button-shadow rounded-full pointer-events-none"></div>
-      </div>
-    );
-  }
-);
-GlassButton.displayName = "GlassButton";
 
 const GradientBackground = () => (
   <>
@@ -458,6 +288,7 @@ type OnboardingStep =
   | "basics"
   | "workExperience"
   | "jobPreferences"
+  | "resumeRevamp"
   | "submitted";
 
 const STEPS: OnboardingStep[] = [
@@ -465,6 +296,7 @@ const STEPS: OnboardingStep[] = [
   "basics",
   "workExperience",
   "jobPreferences",
+  "resumeRevamp",
   "submitted",
 ];
 
@@ -880,7 +712,13 @@ const MentorqueLogo = () => (
 );
 
 export function OnboardingFlow() {
-  const [step, setStep] = useState<OnboardingStep>("login");
+  const [step, setStep] = useState<OnboardingStep>(() => {
+    // If URL hash is #result or #questions, jump to resumeRevamp step
+    if (typeof window !== 'undefined' && (window.location.hash === '#result' || window.location.hash === '#questions')) {
+      return 'resumeRevamp';
+    }
+    return 'login';
+  });
   const [modalStatus, setModalStatus] = useState<"closed" | "loading">(
     "closed"
   );
@@ -1027,10 +865,11 @@ export function OnboardingFlow() {
     { id: "basics", label: "Profile" },
     { id: "workExperience", label: "Experience" },
     { id: "jobPreferences", label: "Preferences" },
+    { id: "resumeRevamp", label: "Revamp" },
   ];
 
   return (
-    <div className="bg-background min-h-screen w-screen flex flex-col">
+    <div className="bg-background h-screen w-screen flex flex-col overflow-hidden">
       <style>{GLASS_STYLES}</style>
 
       <Confetti
@@ -1088,7 +927,8 @@ export function OnboardingFlow() {
 
       <div
         className={cn(
-          "flex w-full flex-1 h-full items-center justify-center bg-card",
+          "flex w-full flex-1 min-h-0 bg-card",
+          step === "resumeRevamp" ? "items-stretch justify-start" : "items-center justify-center",
           "relative overflow-hidden"
         )}
       >
@@ -1097,6 +937,7 @@ export function OnboardingFlow() {
         </div>
 
         <AnimatePresence mode="wait">
+          {/* ... (keep other steps) */}
           {step === "login" && (
             <motion.div
               key="login"
@@ -1416,7 +1257,7 @@ export function OnboardingFlow() {
               transition={{ duration: 0.35, ease: "easeOut" }}
               className={cn(
                 STEP_OUTER,
-                "gap-8 max-h-screen overflow-y-auto py-20"
+                "gap-8 max-h-screen overflow-y-auto py-20 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']"
               )}
             >
               <div className="w-full flex flex-col items-center gap-3">
@@ -1511,7 +1352,7 @@ export function OnboardingFlow() {
                           value={impact}
                           onChange={(e) => setImpact(e.target.value)}
                           rows={3}
-                          className="relative z-10 w-0 flex-grow bg-transparent text-foreground placeholder:text-foreground/60 focus:outline-none resize-none py-3 pr-3 text-sm"
+                          className="relative z-10 h-full w-0 flex-grow bg-transparent text-foreground placeholder:text-foreground/60 focus:outline-none resize-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']"
                         />
                       </div>
                     </div>
@@ -1580,7 +1421,7 @@ export function OnboardingFlow() {
               transition={{ duration: 0.35, ease: "easeOut" }}
               className={cn(
                 STEP_OUTER,
-                "gap-8 max-h-screen overflow-y-auto py-20"
+                "gap-8 max-h-screen overflow-y-auto py-20 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']"
               )}
             >
               <div className="w-full flex flex-col items-center gap-3">
@@ -1679,7 +1520,7 @@ export function OnboardingFlow() {
                     </button>
                     <GlassButton
                       type="button"
-                      onClick={handleFinalSubmit}
+                      onClick={() => setStep("resumeRevamp")}
                       disabled={!canProceedPrefs}
                       contentClassName="flex items-center gap-2"
                       className={cn(
@@ -1687,7 +1528,7 @@ export function OnboardingFlow() {
                         !canProceedPrefs && "opacity-40"
                       )}
                     >
-                      Submit <ArrowRight className="w-4 h-4" />
+                      Continue <ArrowRight className="w-4 h-4" />
                     </GlassButton>
                   </div>
                 </BlurFade>
@@ -1697,6 +1538,25 @@ export function OnboardingFlow() {
 
           {step === "submitted" && (
             <SubmittedScreen email={email} />
+          )}
+
+          {step === "resumeRevamp" && (
+            <motion.div
+              key="resumeRevamp"
+              initial={{ y: 10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -10, opacity: 0 }}
+              transition={{ duration: 0.35, ease: "easeOut" }}
+              className="relative z-10 flex w-full max-w-[1600px] h-full flex-col mx-auto px-6 pt-20 pb-2 overflow-hidden"
+            >
+              <ResumeRevampStep
+                onComplete={(finalResumeData) => {
+                  // Trigger the final submission flow
+                  handleFinalSubmit();
+                }}
+                apiBaseUrl=""
+              />
+            </motion.div>
           )}
         </AnimatePresence>
       </div>
