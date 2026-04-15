@@ -27,7 +27,8 @@ import {
   BarChart3,
   Sparkles,
   CheckCircle2,
-  ArrowRight
+  ArrowRight,
+  Info
 } from 'lucide-react';
 import {
   SiGoogle,
@@ -136,7 +137,7 @@ function PdfPanel({ pdfUrl, revampedResume }: { pdfUrl: string | null; revampedR
         loading={
           <div className="flex flex-col items-center justify-center h-[500px] w-full gap-3 bg-white/5 rounded-2xl border border-white/5">
             <Loader2 className="w-8 h-8 animate-spin text-white/20" />
-            <span className="text-[10px] font-bold uppercase tracking-widest text-white/20">Rendering...</span>
+            <span className="text-xs font-bold uppercase tracking-widest text-white/20">Rendering...</span>
           </div>
         }
         error={
@@ -158,22 +159,22 @@ function PdfPanel({ pdfUrl, revampedResume }: { pdfUrl: string | null; revampedR
 
       {/* PDF Navigation */}
       {numPages && numPages > 1 && (
-        <div className="flex items-center gap-6 px-4 py-2 rounded-2xl bg-white/[0.03] border border-white/5 backdrop-blur-md">
+        <div className="flex items-center gap-8 px-6 py-2.5 rounded-2xl bg-white/[0.05] border border-white/10 backdrop-blur-md shadow-xl">
           <button
             onClick={() => changePage(-1)}
             disabled={pageNumber <= 1}
             className={cn(
-              "p-2 rounded-xl transition-all duration-300",
+              "p-2.5 rounded-xl transition-all duration-300",
               pageNumber <= 1 
                 ? "text-white/5 cursor-not-allowed" 
-                : "text-white/40 hover:text-white hover:bg-white/5"
+                : "text-white/40 hover:text-white hover:bg-white/10 active:scale-90"
             )}
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
           
-          <div className="flex flex-col items-center min-w-[80px]">
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/60">
+          <div className="flex flex-col items-center min-w-[100px]">
+            <span className="text-xs font-bold uppercase tracking-[0.2em] text-white/70">
               Page {pageNumber} of {numPages}
             </span>
           </div>
@@ -182,10 +183,10 @@ function PdfPanel({ pdfUrl, revampedResume }: { pdfUrl: string | null; revampedR
             onClick={() => changePage(1)}
             disabled={pageNumber >= numPages}
             className={cn(
-              "p-2 rounded-xl transition-all duration-300",
+              "p-2.5 rounded-xl transition-all duration-300",
               pageNumber >= numPages 
                 ? "text-white/5 cursor-not-allowed" 
-                : "text-white/40 hover:text-white hover:bg-white/5"
+                : "text-white/40 hover:text-white hover:bg-white/10 active:scale-90"
             )}
           >
             <ChevronRight className="w-5 h-5" />
@@ -205,29 +206,29 @@ function TextFallback({ resume: r }: { resume: any }) {
     .filter(Boolean).join(' · ');
 
   return (
-    <div className="w-full text-[11.5px] leading-relaxed text-white/45 font-mono space-y-1">
+    <div className="w-full text-[13px] leading-relaxed text-white/60 font-mono space-y-2">
       {name && (
-        <div className="text-center pb-4 mb-6 border-b border-white/10">
-          <p className="text-white/85 font-bold text-lg tracking-tight">{name}</p>
-          {contact && <p className="text-white/20 text-[10px] mt-1">{contact}</p>}
+        <div className="text-center pb-6 mb-8 border-b border-white/10">
+          <p className="text-white/90 font-bold text-2xl tracking-tight">{name}</p>
+          {contact && <p className="text-white/40 text-xs mt-2">{contact}</p>}
         </div>
       )}
       {r.professionalSummary && (
-        <div className="mb-6">
-          <p className="text-[9px] font-bold uppercase tracking-widest text-white/20 mb-2">Summary</p>
-          <p className="text-white/40">{r.professionalSummary}</p>
+        <div className="mb-8">
+          <p className="text-xs font-bold uppercase tracking-widest text-white/40 mb-3">Summary</p>
+          <p className="text-white/70 leading-relaxed">{r.professionalSummary}</p>
         </div>
       )}
       {r.experience?.map((exp: any, i: number) => (
-        <div key={i} className="mb-5">
-          <div className="flex items-baseline justify-between mb-1">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-white/30">
+        <div key={i} className="mb-8">
+          <div className="flex items-baseline justify-between mb-2">
+            <p className="text-xs font-bold uppercase tracking-widest text-white/50">
               {exp.position} · {exp.company}
             </p>
-            <p className="text-[9px] text-white/15">{exp.startDate} – {exp.endDate || 'Present'}</p>
+            <p className="text-[11px] text-white/30">{exp.startDate} – {exp.endDate || 'Present'}</p>
           </div>
           {exp.highlights?.map((h: string, hi: number) => (
-            <p key={hi} className="pl-4 border-l border-white/5 text-white/35 mb-1.5 text-[10.5px] leading-relaxed">{h}</p>
+            <p key={hi} className="pl-5 border-l-2 border-white/10 text-white/50 mb-2 text-sm leading-relaxed">{h}</p>
           ))}
         </div>
       ))}
@@ -242,32 +243,41 @@ function BentoCard({
   icon,
   children,
   className,
+  headerClassName,
+  rightElement,
 }: {
   title: string;
   icon: React.ReactNode;
   children: React.ReactNode;
   className?: string;
+  headerClassName?: string;
+  rightElement?: React.ReactNode;
 }) {
   return (
-    <div
+    <motion.div
+      layout
+      transition={{
+        layout: { type: "spring", stiffness: 300, damping: 30 },
+        opacity: { duration: 0.2 }
+      }}
       className={cn(
-        "relative rounded-3xl border border-white/5 bg-white/[0.02] backdrop-blur-md p-6 flex flex-col gap-5",
-        "transition-all duration-500 hover:border-white/15 group/card",
+        "relative rounded-[2rem] border border-white/10 bg-white/[0.03] backdrop-blur-xl p-5 flex flex-col gap-4 overflow-hidden shadow-2xl transition-all duration-500 hover:bg-white/[0.05] hover:border-white/20 group/card",
         className
       )}
     >
-      <div className="flex items-center justify-between">
+      <div className={cn("flex items-center justify-between shrink-0", headerClassName)}>
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-white/5 text-white/70 transition-colors group-hover/card:bg-primary/10 group-hover/card:text-primary">
+          <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-white/5 text-white/40 group-hover/card:text-primary transition-colors">
             {icon}
           </div>
-          <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/50 group-hover/card:text-white/70 transition-colors">{title}</h4>
+          <h4 className="text-[10px] font-black uppercase tracking-[0.25em] text-white/30 group-hover/card:text-white/60 transition-colors">{title}</h4>
         </div>
+        {rightElement}
       </div>
-      <div className="flex-1">
+      <div className="flex-1 relative">
         {children}
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -284,97 +294,63 @@ function KeyChangesCard({ changes }: { changes: BulletChange[] }) {
     setIdx(i => (i + d + changes.length) % changes.length);
   };
 
-  if (!changes.length) {
-    return (
-      <BentoCard title="Analysis" icon={<Sparkles className="w-4 h-4" />}>
-        <div className="h-full flex flex-col items-center justify-center text-center py-4">
-          <p className="text-xs text-white/20">No specific enhancements detected for this selection.</p>
-        </div>
-      </BentoCard>
-    );
-  }
-
   return (
-    <BentoCard title="Key Changes" icon={<Sparkles className="w-4 h-4" />}>
-      <div className="relative min-h-[140px] flex flex-col">
+    <BentoCard 
+      title="Strategic Enhancements" 
+      icon={<Sparkles className="w-4 h-4" />}
+      className="md:col-span-3 min-h-[220px]"
+    >
+      <div className="h-full flex flex-col gap-5">
         <AnimatePresence mode="wait" custom={dir}>
           <motion.div
             key={idx}
             custom={dir}
             variants={{
-              enter: (d: number) => ({ x: d > 0 ? 10 : -10, opacity: 0, filter: 'blur(4px)' }),
+              enter: (d: number) => ({ x: d > 0 ? 10 : -10, opacity: 0, filter: 'blur(10px)' }),
               center: { x: 0, opacity: 1, filter: 'blur(0px)' },
-              exit: (d: number) => ({ x: d < 0 ? 10 : -10, opacity: 0, filter: 'blur(4px)' }),
+              exit: (d: number) => ({ x: d < 0 ? 10 : -10, opacity: 0, filter: 'blur(10px)' }),
             }}
             initial="enter"
             animate="center"
             exit="exit"
-            transition={{ 
-              x: { type: 'spring', stiffness: 400, damping: 40 },
-              opacity: { duration: 0.2 },
-              filter: { duration: 0.2 }
-            }}
-            className="space-y-4"
+            transition={{ type: 'spring', stiffness: 400, damping: 40 }}
+            className="flex-1 flex flex-col justify-center gap-6"
           >
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="w-1 h-3 rounded-full bg-white/20" />
-                <p className="text-[9px] font-bold uppercase tracking-widest text-white/40">Before</p>
-              </div>
-              <p className="text-xs text-white/50 line-through decoration-white/20 leading-relaxed font-light pl-3 border-l border-white/10">
+            <div className="relative pl-6">
+              <div className="absolute left-0 top-1 bottom-1 w-[2px] bg-white/10 rounded-full" />
+              <p className="text-[11px] font-bold uppercase tracking-widest text-white/20 mb-1.5">Original</p>
+              <p className="text-sm text-white/40 line-through decoration-white/20 leading-relaxed font-light">
                 {visible?.original}
               </p>
             </div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="w-1 h-3 rounded-full bg-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.3)]" />
-                <p className="text-[9px] font-bold uppercase tracking-widest text-emerald-500/40">After</p>
-              </div>
-              <div className="relative group/text">
-                <div className="absolute -inset-x-2 -inset-y-1 rounded-lg bg-emerald-500/5 opacity-0 group-hover/text:opacity-100 transition-opacity" />
-                <p className="relative text-[13px] text-white/90 leading-relaxed font-medium pl-3 border-l border-emerald-500/20">
-                  {visible?.revised}
-                </p>
-              </div>
+            <div className="relative pl-6">
+              <div className="absolute left-0 top-1 bottom-1 w-[2px] bg-emerald-500/40 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.3)]" />
+              <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-500/40 mb-1.5">Optimized</p>
+              <p className="text-base text-white/90 leading-relaxed font-medium">
+                {visible?.revised}
+              </p>
             </div>
           </motion.div>
         </AnimatePresence>
 
-        <div className="mt-auto pt-6 flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-mono font-bold text-white/40 tabular-nums tracking-tighter">
-              {String(idx + 1).padStart(2, '0')}
-            </span>
-            <div className="w-4 h-px bg-white/10" />
-            <span className="text-[10px] font-mono text-white/15 tabular-nums tracking-tighter">
-              {String(changes.length).padStart(2, '0')}
-            </span>
+        <div className="mt-auto flex items-center justify-between border-t border-white/5 pt-4">
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] font-mono font-bold text-white/40">{String(idx + 1).padStart(2, '0')}</span>
+            <div className="w-8 h-px bg-white/10" />
+            <span className="text-[10px] font-mono text-white/10">{String(changes.length).padStart(2, '0')}</span>
           </div>
-          
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => go(-1)}
-              disabled={changes.length <= 1}
-              className={cn(
-                "p-1.5 rounded-lg border border-white/5 transition-all",
-                changes.length <= 1 
-                  ? "opacity-0 pointer-events-none" 
-                  : "text-white/20 hover:text-white hover:bg-white/5 hover:border-white/10 active:scale-95"
-              )}
+              className="p-2.5 rounded-xl border border-white/10 bg-white/5 text-white/50 hover:text-white hover:bg-white/10 hover:border-white/20 transition-all active:scale-90"
             >
-              <ChevronLeft className="w-3.5 h-3.5" />
+              <ChevronLeft className="w-4 h-4" />
             </button>
             <button
               onClick={() => go(1)}
-              disabled={changes.length <= 1}
-              className={cn(
-                "p-1.5 rounded-lg border border-white/5 transition-all",
-                changes.length <= 1 
-                  ? "opacity-0 pointer-events-none" 
-                  : "text-white/20 hover:text-white hover:bg-white/5 hover:border-white/10 active:scale-95"
-              )}
+              className="p-2.5 rounded-xl border border-white/10 bg-white/5 text-white/50 hover:text-white hover:bg-white/10 hover:border-white/20 transition-all active:scale-90"
             >
-              <ChevronRight className="w-3.5 h-3.5" />
+              <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -385,45 +361,41 @@ function KeyChangesCard({ changes }: { changes: BulletChange[] }) {
 
 // ─── Card 2: Impact Analysis ─────────────────────────────────────────────────────
 
-function ImpactCard({ changes, revampedResume, section }: { changes: BulletChange[]; revampedResume: any; section: string }) {
+function ImpactCard({ changes }: { changes: BulletChange[] }) {
   const insights = useMemo(() => {
-    const items: string[] = [];
     const revisedTexts = changes.map(c => c.revised);
-
-    if (revisedTexts.some(t => /\d[\d,%+]/.test(t))) items.push('Quantifiable metrics');
-    const actionVerbs = ['led', 'engineered', 'delivered', 'drove', 'spearheaded', 'optimized', 'architected', 'scaled', 'transformed', 'accelerated', 'generated', 'launched'];
-    if (revisedTexts.some(t => actionVerbs.some(v => t.toLowerCase().includes(v)))) items.push('Strong action verbs');
-    const techKeywords = ['scalable', 'real-time', 'microservices', 'CI/CD', 'automated', 'end-to-end', 'high-availability', 'performance', 'security'];
-    if (revisedTexts.some(t => techKeywords.some(k => t.toLowerCase().includes(k)))) items.push('Modern tech keywords');
-    const impactWords = ['increased', 'reduced', 'improved', 'enhanced', 'boosted', 'grew', 'expanded'];
-    if (revisedTexts.some(t => impactWords.some(w => t.toLowerCase().includes(w)))) items.push('Impact-driven tone');
-
-    if (!items.length) items.push('Enhanced professional clarity');
-    return items.slice(0, 4);
+    const items: string[] = [];
+    if (revisedTexts.some(t => /\d/.test(t))) items.push('Quantifiable');
+    if (revisedTexts.some(t => /led|engineered|drove/i.test(t))) items.push('Action-First');
+    if (revisedTexts.some(t => /scalable|performance/i.test(t))) items.push('Architecture');
+    if (!items.length) items.push('Professional');
+    return items.slice(0, 3);
   }, [changes]);
 
   return (
-    <BentoCard title="Impact" icon={<TrendingUp className="w-4 h-4" />}>
-      <div className="h-full flex flex-col">
-        <div className="grid grid-cols-1 gap-2.5">
-          {insights.map((item, i) => (
-            <div key={i} className="flex items-center gap-3 p-2.5 rounded-xl bg-white/[0.02] border border-white/5 group/item transition-all hover:bg-white/[0.04]">
-              <div className="w-5 h-5 rounded-md bg-emerald-500/10 flex items-center justify-center">
-                <CheckCircle2 className="w-3 h-3 text-emerald-500/50 group-hover/item:text-emerald-400 transition-colors" />
+    <BentoCard 
+      title="Value Delta" 
+      icon={<TrendingUp className="w-4 h-4" />}
+      className="md:col-span-3"
+    >
+      <div className="h-full flex flex-row items-center justify-between py-1 gap-12">
+        <div className="flex-1 space-y-4">
+          <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-2">Key Insights</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {insights.map((item, i) => (
+              <div key={i} className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] transition-colors">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500/40" />
+                <span className="text-xs font-medium text-white/60">{item}</span>
               </div>
-              <p className="text-[11px] font-medium text-white/70 group-hover/item:text-white transition-colors">{item}</p>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-        <div className="mt-auto pt-4 flex items-center justify-between">
-          <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/30">Score Improvement</p>
-          <div className="flex items-center gap-1.5">
-            <div className="flex items-center gap-0.5">
-              {[1,2,3,4,5].map(v => (
-                <div key={v} className={cn("w-1 h-2 rounded-full", v <= 4 ? "bg-emerald-500/40" : "bg-white/10")} />
-              ))}
-            </div>
-            <span className="text-[10px] font-mono font-bold text-emerald-500/60">+28%</span>
+
+        <div className="flex flex-col items-end gap-1 px-8 border-l border-white/5">
+          <span className="text-[10px] font-black uppercase tracking-widest text-white/20">Metric Score</span>
+          <div className="flex items-baseline gap-2">
+            <span className="text-5xl font-mono font-bold text-emerald-400">+28</span>
+            <span className="text-sm font-mono font-bold text-emerald-400/40">%</span>
           </div>
         </div>
       </div>
@@ -433,148 +405,243 @@ function ImpactCard({ changes, revampedResume, section }: { changes: BulletChang
 
 // ─── Card 3: Company Fit ─────────────────────────────────────────────────────────
 
+// Random success stories tied to companies
+const SUCCESS_STORIES: Record<string, { message: string; role: string }> = {
+  Google: {
+    message: 'One of our similar revamps got selection for SDE-2 role at Google',
+    role: '→ L4 SWE, Mountain View',
+  },
+  Meta: {
+    message: 'One of our similar revamps got selection for SDE-2 role at Meta',
+    role: '→ E5, Menlo Park',
+  },
+  Stripe: {
+    message: 'One of our similar revamps got selection for SDE-2 role at Stripe',
+    role: '→ L3 Engineer, Remote',
+  },
+  Amazon: {
+    message: 'One of our similar revamps got selection for SDE-2 role at Amazon',
+    role: '→ L6 SDE, Seattle',
+  },
+  Shopify: {
+    message: 'One of our similar revamps got selection for SDE-2 role at Shopify',
+    role: '→ Senior Developer, Remote',
+  },
+  Netflix: {
+    message: 'One of our similar revamps got selection for SDE-2 role at Netflix',
+    role: '→ Senior Engineer, Los Gatos',
+  },
+  Microsoft: {
+    message: 'One of our similar revamps got selection for SDE-2 role at Microsoft',
+    role: '→ L62 SDE, Redmond',
+  },
+  Apple: {
+    message: 'One of our similar revamps got selection for SDE-2 role at Apple',
+    role: '→ ICT V, Cupertino',
+  },
+};
+
 function CompanyFitCard() {
+  const [selectedCompany, setSelectedCompany] = useState<string | null>(null);
+  const story = selectedCompany ? SUCCESS_STORIES[selectedCompany] : null;
+
   return (
-    <BentoCard title="Company Fit" icon={<Building2 className="w-4 h-4" />}>
-      <div className="space-y-5">
-        <div className="grid grid-cols-4 md:grid-cols-8 gap-3">
-          {COMPANIES.map((c) => (
-            <div
-              key={c.name}
-              className="group/logo flex flex-col items-center gap-2"
+    <BentoCard
+      title="Target Alignment"
+      icon={<Building2 className="w-4 h-4" />}
+      className="md:col-span-3 h-[210px]"
+      rightElement={
+        <AnimatePresence mode="wait">
+          {selectedCompany ? (
+            <motion.button
+              key="back-btn"
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 10 }}
+              onClick={() => setSelectedCompany(null)}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/40 hover:text-white hover:bg-white/10 transition-all"
             >
-              <div
-                className="w-10 h-10 rounded-2xl flex items-center justify-center bg-white/[0.02] border border-white/5 text-white/20 transition-all duration-300 group-hover/logo:bg-white/[0.05] group-hover/logo:border-white/20 group-hover/logo:scale-110"
-                style={{ color: 'var(--logo-color)' } as any}
-              >
-                <c.icon 
-                  className="w-5 h-5 transition-colors duration-300" 
-                  style={{ '--hover-color': c.color } as any}
-                />
-                <style dangerouslySetInnerHTML={{ __html: `
-                  .group\\/logo:hover svg { color: ${c.color} !important; filter: drop-shadow(0 0 8px ${c.color}44); }
-                `}} />
+              <ChevronLeft className="w-3 h-3" />
+              <span className="text-[10px] font-bold uppercase tracking-widest">Back</span>
+            </motion.button>
+          ) : (
+            <motion.div
+              key="badge"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="flex items-center gap-2 px-3 py-1 rounded-full bg-primary/20 border border-primary/30 shadow-[0_0_15px_rgba(var(--primary),0.2)]"
+            >
+              <Sparkles className="w-3 h-3 text-primary" />
+              <span className="text-[10px] font-bold uppercase tracking-widest text-primary">Tier-1 Optimized</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      }
+    >
+      <div className="relative h-full flex flex-col justify-center">
+        <AnimatePresence mode="wait">
+          {!selectedCompany ? (
+            <motion.div
+              key="grid"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="flex flex-col gap-4"
+            >
+              <div className="grid grid-cols-4 sm:grid-cols-8 gap-4">
+                {COMPANIES.map((c) => (
+                  <button
+                    key={c.name}
+                    onClick={() => setSelectedCompany(c.name)}
+                    className="group/logo relative flex flex-col items-center gap-2"
+                  >
+                    <div className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white/[0.03] border border-white/10 text-white/20 group-hover/logo:bg-white/[0.1] group-hover/logo:border-primary/40 group-hover/logo:scale-110 transition-all duration-500">
+                      <c.icon className="w-6 h-6 transition-colors" />
+                      <style dangerouslySetInnerHTML={{ __html: `
+                        .group\\/logo:hover svg { color: ${c.color} !important; filter: drop-shadow(0 0 10px ${c.color}44); }
+                      `}} />
+                    </div>
+                    <span className="text-[9px] font-bold text-white/30 group-hover/logo:text-white/70 transition-colors uppercase tracking-widest">{c.name}</span>
+                  </button>
+                ))}
               </div>
-              <span className="text-[8px] font-bold uppercase tracking-widest text-white/10 group-hover/logo:text-white/40 transition-colors">
-                {c.name}
-              </span>
-            </div>
-          ))}
-        </div>
-        <div className="flex items-center justify-center gap-3 py-2 px-4 rounded-full bg-white/[0.02] border border-white/5 w-fit mx-auto">
-          <Sparkles className="w-3 h-3 text-primary/40" />
-          <p className="text-[10px] font-medium text-white/30">
-            Optimized for <span className="text-white/60">Tier-1 engineering standards</span>
-          </p>
-        </div>
+              <div className="flex items-center gap-2 text-white/40">
+                <Info className="w-3.5 h-3.5" />
+                <p className="text-[10px] font-medium italic">Click a logo to see success story</p>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="selected"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center"
+            >
+              {/* Col 1: Logo */}
+              <div className="md:col-span-2 flex flex-col items-center gap-2">
+                {(() => {
+                  const c = COMPANIES.find(co => co.name === selectedCompany);
+                  if (!c) return null;
+                  return (
+                    <motion.div 
+                      layoutId={`logo-${selectedCompany}`}
+                      className="flex flex-col items-center gap-2"
+                    >
+                      <div className="w-14 h-14 flex items-center justify-center rounded-2xl bg-white/5 border border-primary/20 shadow-[0_0_20px_rgba(var(--primary),0.1)]" style={{ color: c.color }}>
+                        <c.icon className="w-7 h-7" />
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-white/60">{selectedCompany}</span>
+                    </motion.div>
+                  );
+                })()}
+              </div>
+
+              {/* Col 2: Message */}
+              <div className="md:col-span-7 border-l border-white/5 pl-6">
+                {story && (
+                  <motion.div
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.1 }}
+                    className="space-y-2"
+                  >
+                    <p className="text-white/80 text-sm leading-relaxed font-medium">{story.message}</p>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-px bg-primary/40" />
+                      <p className="text-primary/90 text-[10px] font-black uppercase tracking-widest">{story.role}</p>
+                    </div>
+                  </motion.div>
+                )}
+              </div>
+
+              {/* Col 3: Button */}
+              <div className="md:col-span-3 flex justify-end pr-2">
+                <motion.a
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.2 }}
+                  href="/sample-resume.pdf"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group/preview flex flex-col items-center gap-2 text-white/40 hover:text-primary transition-all duration-300"
+                >
+                  <div className="w-12 h-12 flex items-center justify-center rounded-full bg-primary/10 border border-primary/20 group-hover/preview:bg-primary/20 group-hover/preview:border-primary/40 group-hover/preview:scale-110 transition-all duration-500 shadow-[0_0_20px_rgba(var(--primary),0.05)] relative overflow-hidden">
+                    <FileText className="w-5 h-5 transition-all duration-500 group-hover/preview:opacity-0 group-hover/preview:scale-50 group-hover/preview:rotate-12" />
+                    <ArrowUpRight className="w-5 h-5 absolute opacity-0 scale-50 -rotate-12 group-hover/preview:opacity-100 group-hover/preview:scale-100 group-hover/preview:rotate-0 transition-all duration-500" />
+                  </div>
+                  <span className="text-[9px] font-black uppercase tracking-[0.2em]">Sample</span>
+                </motion.a>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </BentoCard>
   );
 }
 
-// ─── Card 4: Reference Resumes (Placeholder) ─────────────────────────────────────
+// ─── Card 4: Metrics ─────────────────────────────────────────────────────────────
 
-function ReferenceCard() {
+function MetricItem({ m }: { m: any }) {
   return (
-    <BentoCard title="Similar Success" icon={<FileText className="w-4 h-4" />}>
-      <div className="flex-1 flex flex-col items-center justify-center gap-4 py-8 text-center">
-        <div className="relative">
-          <div className="absolute inset-0 bg-primary/20 blur-2xl opacity-0 group-hover/card:opacity-100 transition-opacity" />
-          <div className="relative w-12 h-12 rounded-2xl border border-white/10 bg-white/5 flex items-center justify-center">
-            <FileText className="w-5 h-5 text-white/10" />
-          </div>
+    <div className="group/metric relative flex flex-col justify-between p-4 rounded-3xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] hover:border-white/15 transition-all duration-500 shadow-xl overflow-hidden min-h-[120px]">
+      <div className={cn("absolute -top-10 -right-10 w-20 h-20 blur-[40px] opacity-10 transition-opacity group-hover/metric:opacity-20", m.color.replace('text-', 'bg-'))} />
+      <div className="flex items-center justify-between mb-4">
+        <div className={cn("w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 border border-white/10", m.color)}>
+          {m.icon}
         </div>
-        <div className="space-y-1">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-white/20">Coming Soon</p>
-          <p className="text-[10px] text-white/10 leading-relaxed px-4">
-            Compare against profiles that landed roles at target companies
-          </p>
+        <div className="text-right">
+          <span className={cn("text-xs font-black tracking-tighter", m.color)}>
+            +{Math.max(0, (typeof m.value === 'number' ? m.value : 100) - (typeof m.prev === 'number' ? m.prev : 0))}%
+          </span>
         </div>
       </div>
-    </BentoCard>
+      <div>
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 mb-1 leading-none">{m.label}</p>
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-2xl font-mono font-bold text-white leading-none">{m.value}</span>
+          <span className="text-sm font-mono font-bold text-white/20 leading-none">{m.suffix}</span>
+        </div>
+      </div>
+    </div>
   );
 }
 
-// ─── Card 5: Metrics ─────────────────────────────────────────────────────────────
-
-function MetricsCard({ revampedResume, changes, originalResume }: { revampedResume: any; changes: BulletChange[]; originalResume?: any }) {
+function MetricsCard({ revampedResume, originalResume }: { revampedResume: any; originalResume?: any }) {
   const getStats = (res: any) => {
     const allHighlights: string[] = [];
     res?.experience?.forEach((e: any) => e.highlights?.forEach((h: string) => allHighlights.push(h)));
     res?.projects?.forEach((p: any) => p.highlights?.forEach((h: string) => allHighlights.push(h)));
-
-    const totalBullets = allHighlights.length;
+    const total = allHighlights.length;
     const withNumbers = allHighlights.filter(h => /\d/.test(h)).length;
-    const metricsPct = totalBullets > 0 ? Math.round((withNumbers / totalBullets) * 100) : 0;
-    const actionVerbs = ['led', 'engineered', 'delivered', 'drove', 'spearheaded', 'optimized', 'architected', 'scaled', 'transformed', 'accelerated', 'generated', 'launched', 'built', 'developed', 'shipped', 'created', 'implemented', 'designed', 'managed', 'directed'];
+    const actionVerbs = ['led', 'engineered', 'delivered', 'drove', 'spearheaded', 'optimized', 'architected', 'scaled', 'transformed', 'accelerated', 'generated', 'launched'];
     const withVerbs = allHighlights.filter(h => actionVerbs.some(v => h.toLowerCase().startsWith(v))).length;
-    const verbPct = totalBullets > 0 ? Math.round((withVerbs / totalBullets) * 100) : 0;
-
-    return { metricsPct, verbPct };
+    return { 
+      density: total > 0 ? Math.round((withNumbers / total) * 100) : 0, 
+      strength: total > 0 ? Math.round((withVerbs / total) * 100) : 0 
+    };
   };
 
-  const current = getStats(revampedResume);
-  const original = getStats(originalResume);
+  const curr = getStats(revampedResume);
+  const orig = getStats(originalResume);
 
-  const metricItems = [
-    { 
-      label: 'Metric Density', 
-      value: current.metricsPct, 
-      prev: original.metricsPct,
-      suffix: '%', 
-      icon: <TrendingUp className="w-3.5 h-3.5" />, 
-      color: 'text-emerald-400' 
-    },
-    { 
-      label: 'Verb Strength', 
-      value: current.verbPct, 
-      prev: original.verbPct,
-      suffix: '%', 
-      icon: <Sparkles className="w-3.5 h-3.5" />, 
-      color: 'text-amber-400' 
-    },
-    { 
-      label: 'Keyword Match', 
-      value: 94, 
-      prev: 62,
-      suffix: '%', 
-      icon: <BarChart3 className="w-3.5 h-3.5" />, 
-      color: 'text-primary' 
-    },
-    { 
-      label: 'Readability', 
-      value: 'A+', 
-      prev: 'B-',
-      suffix: '', 
-      icon: <FileText className="w-3.5 h-3.5" />, 
-      color: 'text-blue-400' 
-    },
+  const items = [
+    { label: 'Density', value: curr.density, prev: orig.density, suffix: '%', icon: <TrendingUp className="w-5 h-5" />, color: 'text-emerald-400' },
+    { label: 'Strength', value: curr.strength, prev: orig.strength, suffix: '%', icon: <Sparkles className="w-5 h-5" />, color: 'text-amber-400' },
+    { label: 'Match', value: 94, prev: 62, suffix: '%', icon: <BarChart3 className="w-5 h-5" />, color: 'text-blue-400' },
+    { label: 'Reading', value: 'A+', prev: 'B-', suffix: '', icon: <FileText className="w-5 h-5" />, color: 'text-purple-400' },
   ];
 
   return (
-    <BentoCard title="Performance" icon={<BarChart3 className="w-4 h-4" />}>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {metricItems.map((m) => (
-          <div key={m.label} className="group/metric flex flex-col gap-3 p-3 rounded-xl bg-white/[0.04] border border-white/10 transition-all hover:bg-white/[0.08]">
-            <div className="flex items-center gap-2">
-              <div className={cn("p-1.5 rounded-lg bg-white/10", m.color)}>
-                {m.icon}
-              </div>
-              <p className="text-[8px] font-bold uppercase tracking-widest text-white/50 group-hover/metric:text-white/70 transition-colors">{m.label}</p>
-            </div>
-            
-            <div className="flex flex-col gap-0.5">
-              <div className="flex items-baseline gap-1">
-                <span className="text-lg font-mono font-bold text-white">{m.value}</span>
-                <span className="text-[9px] font-mono font-bold text-white/40">{m.suffix}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[8px] font-bold uppercase tracking-tight text-white/30">Prev</span>
-                <span className="text-[10px] font-mono font-bold text-white/40">{m.prev}{m.suffix}</span>
-              </div>
-            </div>
-          </div>
-        ))}
+    <BentoCard 
+      title="Performance" 
+      icon={<BarChart3 className="w-4 h-4" />}
+      className="md:col-span-3"
+    >
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {items.map(m => <MetricItem key={m.label} m={m} />)}
       </div>
     </BentoCard>
   );
@@ -582,14 +649,12 @@ function MetricsCard({ revampedResume, changes, originalResume }: { revampedResu
 
 // ─── Report Panel ────────────────────────────────────────────────────────────────
 
-function ReportPanel({
+// ─── Report Panel (Section Specific Only) ──────────────────────────────────────────
+
+function SectionAnalysis({
   changes,
-  originalResume,
-  revampedResume,
 }: {
   changes: BulletChange[];
-  originalResume: any;
-  revampedResume: any;
 }) {
   const sectionsWithChanges = useMemo(() => {
     return SECTION_ORDER.filter(s => {
@@ -615,95 +680,69 @@ function ReportPanel({
     <div className="flex flex-col gap-6">
       {/* Section Navigation */}
       <div className="flex items-center justify-between px-2 shrink-0">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <span className="text-xs">{meta.icon}</span>
-            <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-white/90">{meta.label}</h3>
+        <div className="flex items-center gap-5">
+          <div className="w-12 h-12 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center justify-center text-2xl shadow-2xl">
+            {meta.icon}
           </div>
-          <p className="text-[10px] text-white/20 font-medium">Detailed section analysis</p>
+          <div className="flex flex-col gap-0.5">
+            <h3 className="text-lg font-bold uppercase tracking-[0.2em] text-white">{meta.label}</h3>
+            <p className="text-[10px] text-white/30 font-black uppercase tracking-widest">Section Analysis</p>
+          </div>
         </div>
         
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-6">
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.02] border border-white/5">
             {sectionsWithChanges.map((_, i) => (
               <div
                 key={i}
                 className={cn(
                   "h-1 rounded-full transition-all duration-500",
-                  i === sectionIdx ? "bg-primary w-6" : "bg-white/10 w-2"
+                  i === sectionIdx ? "bg-primary w-6 shadow-[0_0_8px_rgba(var(--primary),0.5)]" : "bg-white/10 w-1.5"
                 )}
               />
             ))}
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => go(-1)}
               disabled={sectionsWithChanges.length <= 1}
-              className={cn(
-                "p-2 rounded-xl border border-white/5 transition-all",
-                sectionsWithChanges.length <= 1
-                  ? "opacity-0 pointer-events-none"
-                  : "text-white/40 hover:text-white hover:bg-white/5 hover:border-white/10"
-              )}
+              className="p-3 rounded-2xl border border-white/10 text-white/30 hover:text-white hover:bg-white/10 transition-all active:scale-90"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="w-5 h-5" />
             </button>
             <button
               onClick={() => go(1)}
               disabled={sectionsWithChanges.length <= 1}
-              className={cn(
-                "p-2 rounded-xl border border-white/5 transition-all",
-                sectionsWithChanges.length <= 1
-                  ? "opacity-0 pointer-events-none"
-                  : "text-white/40 hover:text-white hover:bg-white/5 hover:border-white/10"
-              )}
+              className="p-3 rounded-2xl border border-white/10 text-white/30 hover:text-white hover:bg-white/10 transition-all active:scale-90"
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-5 h-5" />
             </button>
           </div>
         </div>
       </div>
 
-      {/* Bento Cards */}
-      <div className="pb-4">
+      {/* Bento Layout (Section Specific) */}
+      <div className="pb-8">
         <AnimatePresence mode="wait" custom={dir}>
           <motion.div
             key={currentSection}
             custom={dir}
             variants={{
-              enter: (d: number) => ({ y: 10, opacity: 0, filter: 'blur(10px)' }),
+              enter: (d: number) => ({ y: 20, opacity: 0, filter: 'blur(20px)' }),
               center: { y: 0, opacity: 1, filter: 'blur(0px)' },
-              exit: (d: number) => ({ y: -10, opacity: 0, filter: 'blur(10px)' }),
+              exit: (d: number) => ({ y: -20, opacity: 0, filter: 'blur(20px)' }),
             }}
             initial="enter"
             animate="center"
             exit="exit"
-            transition={{ 
-              y: { type: 'spring', stiffness: 300, damping: 30 },
-              opacity: { duration: 0.3 },
-              filter: { duration: 0.3 }
-            }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            className="grid grid-cols-1 md:grid-cols-3 gap-6"
           >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Row 1: Key Changes (Full width) */}
-              <div className="md:col-span-2">
-                <KeyChangesCard changes={sectionChanges} />
-              </div>
+            {/* Primary Analysis (2 cols) */}
+            <KeyChangesCard changes={sectionChanges} />
 
-              {/* Row 2: Impact | Similar Success (Half width each) */}
-              <ImpactCard changes={sectionChanges} revampedResume={revampedResume} section={currentSection} />
-              <ReferenceCard />
-
-              {/* Row 3: Company Fit (Full width) */}
-              <div className="md:col-span-2">
-                <CompanyFitCard />
-              </div>
-
-              {/* Row 4: Performance (Full width) */}
-              <div className="md:col-span-2">
-                <MetricsCard revampedResume={revampedResume} changes={changes} originalResume={originalResume} />
-              </div>
-            </div>
+            {/* Impact (1 col) */}
+            <ImpactCard changes={sectionChanges} />
           </motion.div>
         </AnimatePresence>
       </div>
@@ -722,24 +761,24 @@ export function ComparisonView({
   return (
     <div className="w-full flex-1 flex flex-col min-h-0">
       {/* Two-panel layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 flex-1 min-h-0">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 flex-1 min-h-0 p-6">
         {/* LEFT — PDF preview (Direct on background) */}
-        <div className="flex flex-col items-center justify-start overflow-y-auto custom-scrollbar">
+        <div className="flex flex-col items-center justify-start overflow-y-auto custom-scrollbar p-4">
           <PdfPanel pdfUrl={compiledPdfUrl} revampedResume={revampedResume} />
         </div>
 
-        {/* RIGHT — Info + Report + Actions (Independent Scroll) */}
-        <div className="overflow-y-auto flex flex-col gap-10 pr-4 custom-scrollbar">
+        {/* RIGHT — Info + Report + Actions (Single Continuous Scroll) */}
+        <div className="overflow-y-auto flex flex-col gap-12 pr-6 custom-scrollbar h-full">
           {/* Header */}
-          <div className="flex items-end justify-between px-2 shrink-0 pt-4">
-            <div className="space-y-1">
-              <div className="flex items-center gap-3">
-                <div className="px-2 py-0.5 rounded-md bg-primary/10 border border-primary/20">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-primary">Revamp V1.0</span>
+          <div className="flex items-end justify-between px-2 shrink-0 pt-2">
+            <div className="space-y-2">
+              <div className="flex items-center gap-4">
+                <div className="px-3 py-1 rounded-lg bg-primary/20 border border-primary/30 shadow-[0_0_15px_rgba(var(--primary),0.2)]">
+                  <span className="text-xs font-bold uppercase tracking-widest text-primary">Revamp V1.0</span>
                 </div>
-                <h2 className="text-2xl font-bold tracking-tight text-white">Resume Analysis</h2>
+                <h2 className="text-3xl font-bold tracking-tight text-white">Resume Analysis</h2>
               </div>
-              <p className="text-white/30 text-xs font-medium">Strategic enhancements and competitive benchmarking</p>
+              <p className="text-white/40 text-sm font-medium">Strategic enhancements and competitive benchmarking</p>
             </div>
             
             {compiledPdfUrl && (
@@ -747,28 +786,36 @@ export function ComparisonView({
                 href={compiledPdfUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.08] hover:border-white/20 transition-all active:scale-95"
+                className="group flex items-center gap-2.5 px-4 py-2 rounded-xl bg-white/[0.05] border border-white/10 hover:bg-white/[0.1] hover:border-white/20 transition-all active:scale-95 shadow-lg"
               >
-                <FileText className="w-3.5 h-3.5 text-white/40 group-hover:text-white/70 transition-colors" />
-                <span className="text-[10px] font-bold uppercase tracking-widest text-white/40 group-hover:text-white/70 transition-colors">Export</span>
+                <FileText className="w-4 h-4 text-white/60 group-hover:text-white transition-colors" />
+                <span className="text-xs font-bold uppercase tracking-widest text-white/60 group-hover:text-white transition-colors">Export PDF</span>
               </a>
             )}
           </div>
 
-          {/* Bento Report */}
-          <div className="shrink-0">
-            <ReportPanel changes={changes} originalResume={originalResume} revampedResume={revampedResume} />
+          {/* Global Analysis Modules */}
+          <div className="grid grid-cols-1 gap-6 shrink-0">
+            <MetricsCard revampedResume={revampedResume} originalResume={originalResume} />
+            <CompanyFitCard />
           </div>
 
-          {/* Proceed button — disabled placeholder */}
+          <div className="h-px bg-white/10 w-full shrink-0" />
+
+          {/* Section-specific Analysis */}
+          <div className="shrink-0">
+            <SectionAnalysis changes={changes} />
+          </div>
+
+          {/* Proceed button — bottom of scroll */}
           <button
             disabled
-            className="relative w-full flex items-center justify-center gap-3 px-6 py-4
-                       rounded-2xl text-xs font-bold uppercase tracking-[0.3em]
-                       bg-white/5 text-white/20 border border-white/5 cursor-not-allowed"
+            className="relative w-full flex items-center justify-center gap-4 px-8 py-5
+                       rounded-2xl text-sm font-bold uppercase tracking-[0.3em]
+                       bg-white/5 text-white/20 border border-white/5 cursor-not-allowed shadow-inner mb-8"
           >
-            Proceed
-            <ArrowRight className="w-4 h-4" />
+            Finalize Resume
+            <ArrowRight className="w-5 h-5" />
           </button>
         </div>
       </div>
