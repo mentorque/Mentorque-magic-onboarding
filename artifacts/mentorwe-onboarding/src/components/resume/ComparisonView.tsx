@@ -52,7 +52,7 @@ interface ComparisonViewProps {
   revampedResume: any;
   changes: BulletChange[];
   compiledPdfUrl: string | null;
-  onFinalize: (acceptedIds: string[]) => void;
+  onFinalize?: () => void;
   apiBaseUrl?: string;
 }
 
@@ -760,19 +760,16 @@ export function ComparisonView({
             <ReportPanel changes={changes} originalResume={originalResume} revampedResume={revampedResume} />
           </div>
 
-          {/* Proceed button */}
-          <div className="relative group/btn shrink-0 mt-auto pb-8">
-            <div className="absolute -inset-1 bg-gradient-to-r from-primary/50 to-accent/50 rounded-2xl blur-xl opacity-20 group-hover/btn:opacity-40 transition-opacity" />
-            <button
-              className="relative w-full flex items-center justify-center gap-3 px-6 py-4
-                         rounded-2xl text-xs font-bold uppercase tracking-[0.3em]
-                         bg-white text-black hover:bg-white/90 transition-all active:scale-[0.99]
-                         shadow-[0_20px_40px_rgba(0,0,0,0.3)]"
-            >
-              Confirm & Finalize
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
+          {/* Proceed button — disabled placeholder */}
+          <button
+            disabled
+            className="relative w-full flex items-center justify-center gap-3 px-6 py-4
+                       rounded-2xl text-xs font-bold uppercase tracking-[0.3em]
+                       bg-white/5 text-white/20 border border-white/5 cursor-not-allowed"
+          >
+            Proceed
+            <ArrowRight className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </div>
