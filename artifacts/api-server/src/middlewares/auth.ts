@@ -1,0 +1,84 @@
+import { Request, Response, NextFunction } from 'express';
+import admin from 'firebase-admin';
+import { getOrCreateUser } from '../utils/userSync.js'; // Note: ESM often requires .js extensions in imports depending on your esbuild config
+
+// Extend Express Request
+declare global {
+  namespace Express {
+    interface Request {
+      user?: any; // Replace 'any' with your inferred Drizzle User type later
+      firebaseUid?: string;
+    }
+  }
+}
+
+if (!admin.apps.length) {
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKeyRaw = process.env.FIREBASE_PRIVATE_KEY;
+
+  if (!projectId || !clientEmail || !privateKeyRaw) {
+    console.error('❌ Missing FIREBASE env variables.');
+  } else {
+    try {
+      // Normalize private key into a valid PEM string.
+      // Expected env formats:
+      // - Single-line value with literal "\n" sequences
+      // - Multiline value with real newlines
+      let privateKey = privateKeyRaw.replace(/\r\n/g, '\n');
+      privateKey = privateKey.replace(/\\n/g, '\n');
+      privateKey = privateKey.replace(/\r/g, '').trim();
+
+      const looksLikePem =
+        privateKey.includes('-----BEGIN PRIVATE KEY-----') &&
+        privateKey.includes('-----END PRIVATE KEY-----');
+
+      if (!looksLikePem) throw new Error('FIREBASE_PRIVATE_KEY does not look like a valid PEM after normalization');
+
+      admin.initializeApp({
+        credential: admin.credential.cert({
+          projectId,
+          clientEmail,
+          privateKey,
+        }),
+      });
+      console.log('✅ Firebase Admin initialized successfully');
+    } catch (err: any) {
+      console.error('❌ Firebase Init Error:', err.message);
+    }
+  }
+}
+
+export async function authenticateFirebaseToken(req: Request, res: Response, next: NextFunction) {
+  try {
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      res.status(401).json({ error: 'Authorization required', message: 'Provide a valid Firebase token' });
+      return;
+    }
+
+    const token = authHeader.split('Bearer ')[1];
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    
+    const email = decodedToken.email?.trim() ? decodedToken.email : null;
+    const name = decodedToken.name || decodedToken.displayName || null;
+    
+    let user;
+    try {
+      user = await getOrCreateUser(decodedToken.uid, email, name);
+    } catch (dbError) {
+      console.error('Database sync error (allowing auth to continue):', dbError);
+      user = { firebaseUid: decodedToken.uid, email, name };
+    }
+    
+    req.user = user;
+    req.firebaseUid = decodedToken.uid;
+    
+    next();
+  } catch (error: any) {
+    console.error('Firebase authentication error:', error.message);
+    res.status(401).json({ error: 'Invalid token', message: 'Token invalid or expired' });
+    return;
+  }
+}
