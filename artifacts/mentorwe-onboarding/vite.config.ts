@@ -53,6 +53,13 @@ export default defineConfig({
       strict: true,
       deny: ["**/.*"],
     },
+    proxy: {
+      // Forward all API requests to the onboarding API server
+      "/api": {
+        target: "http://localhost:3002",
+        changeOrigin: true,
+      },
+    },
   },
   preview: {
     port,
