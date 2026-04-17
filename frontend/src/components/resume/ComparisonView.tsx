@@ -243,7 +243,13 @@ function BentoCard({
 // ─── Card 1: Key Changes ─────────────────────────────────────────────────────────
 
 const CARD_SLIDE_VARIANTS = {
-  enter: ({ direction, action }: { direction: number; action: "slide" | "flip" }) => ({
+  enter: ({
+    direction,
+    action,
+  }: {
+    direction: number;
+    action: "slide" | "flip";
+  }) => ({
     x: action === "slide" ? direction * 50 : 0,
     y: action === "flip" ? 10 : 0,
     opacity: 0,
@@ -255,7 +261,13 @@ const CARD_SLIDE_VARIANTS = {
     opacity: 1,
     scale: 1,
   },
-  exit: ({ direction, action }: { direction: number; action: "slide" | "flip" }) => ({
+  exit: ({
+    direction,
+    action,
+  }: {
+    direction: number;
+    action: "slide" | "flip";
+  }) => ({
     x: action === "slide" ? direction * -50 : 0,
     y: action === "flip" ? -10 : 0,
     opacity: 0,
@@ -312,7 +324,11 @@ function KeyChangesCard({ changes }: { changes: BulletChange[] }) {
       <div className="h-full flex flex-col gap-5">
         {/* ── Card content viewport with smooth transitions ── */}
         <div className="flex-1 min-h-0 relative overflow-hidden">
-          <AnimatePresence mode="popLayout" custom={{ direction: dir, action: animAction }} initial={false}>
+          <AnimatePresence
+            mode="popLayout"
+            custom={{ direction: dir, action: animAction }}
+            initial={false}
+          >
             <motion.div
               key={`${displayIdx}-${isFlipped ? "insight" : "diff"}`}
               custom={{ direction: dir, action: animAction }}
@@ -559,34 +575,20 @@ const SUCCESS_STORIES: Record<string, { message: string; role: string }> = {
   },
 };
 
-function CompanyFitCard() {
+function CompanyFitCard({
+  compiledPdfUrl,
+}: {
+  compiledPdfUrl?: string | null;
+}) {
   const [selectedCompany, setSelectedCompany] = useState<string | null>(null);
+  const [showResume, setShowResume] = useState(false);
   const story = selectedCompany ? SUCCESS_STORIES[selectedCompany] : null;
 
   return (
     <BentoCard
       title="Target Alignment"
       icon={<Building2 className="w-4 h-4" />}
-      className="md:col-span-3 h-[210px]"
-      rightElement={
-        <AnimatePresence mode="wait">
-          {selectedCompany ? (
-            <motion.button
-              key="back-btn"
-              initial={{ opacity: 0, x: 10 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 10 }}
-              onClick={() => setSelectedCompany(null)}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/40 hover:text-white hover:bg-white/10 transition-all"
-            >
-              <ChevronLeft className="w-3 h-3" />
-              <span className="text-[10px] font-bold uppercase tracking-widest">
-                Back
-              </span>
-            </motion.button>
-          ) : null}
-        </AnimatePresence>
-      }
+      className="md:col-span-3"
     >
       <div className="relative h-full flex flex-col justify-center">
         <AnimatePresence mode="wait">
@@ -687,13 +689,11 @@ function CompanyFitCard() {
 
               {/* Col 3: Button */}
               <div className="md:col-span-3 flex justify-end pr-2">
-                <motion.a
+                <motion.button
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.2 }}
-                  href="/sample-resume.pdf"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  onClick={() => setShowResume(true)}
                   className="group/preview flex flex-col items-center gap-2 text-white/40 hover:text-primary transition-all duration-300"
                 >
                   <div className="w-12 h-12 flex items-center justify-center rounded-full bg-primary/10 border border-primary/20 group-hover/preview:bg-primary/20 group-hover/preview:border-primary/40 group-hover/preview:scale-110 transition-all duration-500 shadow-[0_0_20px_rgba(var(--primary),0.05)] relative overflow-hidden">
@@ -701,10 +701,47 @@ function CompanyFitCard() {
                     <ArrowUpRight className="w-5 h-5 absolute opacity-0 scale-50 -rotate-12 group-hover/preview:opacity-100 group-hover/preview:scale-100 group-hover/preview:rotate-0 transition-all duration-500" />
                   </div>
                   <span className="text-[9px] font-black uppercase tracking-[0.2em]">
-                    Sample
+                    View Sample
                   </span>
-                </motion.a>
+                </motion.button>
               </div>
+
+              {/* Resume Viewer Section */}
+              <AnimatePresence>
+                {showResume && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    className="mt-4 pt-4 border-t border-white/10"
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-white/60">
+                        Sample Resume
+                      </span>
+                      <button
+                        onClick={() => setShowResume(false)}
+                        className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/40 hover:text-white hover:bg-white/10 transition-all"
+                      >
+                        <ChevronLeft className="w-3 h-3" />
+                        <span className="text-[10px] font-bold uppercase tracking-widest">
+                          Back
+                        </span>
+                      </button>
+                    </div>
+                    <div className="h-[300px] bg-white/5 rounded-2xl border border-white/10 overflow-hidden">
+                      <PdfAnnotator
+                        pdfUrl={`/api/resume-revamp/proxy-pdf?url=${encodeURIComponent(compiledPdfUrl || "/sample-resume.pdf")}`}
+                        revampedResume={null}
+                        documentId="sample-resume"
+                        focusHighlightId={null}
+                        focusSignal={0}
+                      />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           )}
         </AnimatePresence>
@@ -1065,7 +1102,7 @@ export function ComparisonView({
                   revampedResume={revampedResume}
                   originalResume={originalResume}
                 />
-                <CompanyFitCard />
+                <CompanyFitCard compiledPdfUrl={compiledPdfUrl} />
               </div>
 
               {/* Section-specific Analysis */}
