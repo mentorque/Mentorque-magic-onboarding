@@ -26,6 +26,7 @@ import {
   ArrowRight,
   Info,
   Lightbulb,
+  Eye,
 } from "lucide-react";
 import {
   SiGoogle,
@@ -41,6 +42,7 @@ import type {
   ChangeCategory,
 } from "@/lib/resumeRevampTypes";
 import { PdfAnnotator } from "./PdfAnnotator";
+import { SimplePdfViewer } from "./SimplePdfViewer";
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -250,16 +252,18 @@ const CARD_SLIDE_VARIANTS = {
     direction: number;
     action: "slide" | "flip";
   }) => ({
-    x: action === "slide" ? direction * 50 : 0,
-    y: action === "flip" ? 10 : 0,
+    x: action === "slide" ? direction * 30 : 0,
+    y: action === "flip" ? 8 : 0,
     opacity: 0,
-    scale: action === "flip" ? 0.95 : 1,
+    scale: 0.98,
+    filter: "blur(4px)",
   }),
   center: {
     x: 0,
     y: 0,
     opacity: 1,
     scale: 1,
+    filter: "blur(0px)",
   },
   exit: ({
     direction,
@@ -268,26 +272,33 @@ const CARD_SLIDE_VARIANTS = {
     direction: number;
     action: "slide" | "flip";
   }) => ({
-    x: action === "slide" ? direction * -50 : 0,
-    y: action === "flip" ? -10 : 0,
+    x: action === "slide" ? direction * -30 : 0,
+    y: action === "flip" ? -8 : 0,
     opacity: 0,
-    scale: action === "flip" ? 0.95 : 1,
+    scale: 0.98,
+    filter: "blur(4px)",
   }),
 };
 
 const CONTENT_STAGGER_VARIANTS = {
-  hidden: { opacity: 0, y: 10 },
+  hidden: { opacity: 0, y: 12, filter: "blur(2px)" },
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
+    filter: "blur(0px)",
     transition: {
       type: "spring" as const,
-      stiffness: 300,
-      damping: 25,
-      delay: i * 0.05,
+      stiffness: 150,
+      damping: 22,
+      delay: i * 0.08,
     },
   }),
-  exit: { opacity: 0, transition: { duration: 0.1 } },
+  exit: {
+    opacity: 0,
+    y: -4,
+    filter: "blur(2px)",
+    transition: { duration: 0.2 },
+  },
 };
 
 function KeyChangesCard({ changes }: { changes: BulletChange[] }) {
@@ -321,7 +332,19 @@ function KeyChangesCard({ changes }: { changes: BulletChange[] }) {
       icon={<Sparkles className="w-4 h-4" />}
       className="md:col-span-3 min-h-[260px]"
     >
-      <div className="h-full flex flex-col gap-5">
+      {/* Decorative background glow that shifts on flip */}
+      <AnimatePresence>
+        {isFlipped && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-transparent pointer-events-none"
+          />
+        )}
+      </AnimatePresence>
+
+      <div className="h-full flex flex-col gap-5 relative z-10">
         {/* ── Card content viewport with smooth transitions ── */}
         <div className="flex-1 min-h-0 relative overflow-hidden">
           <AnimatePresence
@@ -338,9 +361,9 @@ function KeyChangesCard({ changes }: { changes: BulletChange[] }) {
               exit="exit"
               transition={{
                 type: "spring",
-                stiffness: 280,
-                damping: 28,
-                mass: 0.8,
+                stiffness: 120,
+                damping: 24,
+                mass: 1,
               }}
               className="flex flex-col justify-center h-full w-full"
             >
@@ -639,10 +662,10 @@ function CompanyFitCard({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center"
+              className="grid grid-cols-4 sm:grid-cols-8 gap-4 items-center"
             >
               {/* Col 1: Logo */}
-              <div className="md:col-span-2 flex flex-col items-center gap-2">
+              <div className="col-span-1 flex flex-col items-center gap-2">
                 {(() => {
                   const c = COMPANIES.find((co) => co.name === selectedCompany);
                   if (!c) return null;
@@ -666,7 +689,7 @@ function CompanyFitCard({
               </div>
 
               {/* Col 2: Message */}
-              <div className="md:col-span-7 border-l border-white/5 pl-6">
+              <div className="col-span-2 sm:col-span-6 border-l border-white/5 pl-6">
                 {story && (
                   <motion.div
                     initial={{ opacity: 0, x: -10 }}
@@ -687,22 +710,65 @@ function CompanyFitCard({
                 )}
               </div>
 
-              {/* Col 3: Button */}
-              <div className="md:col-span-3 flex justify-end pr-2">
+              {/* Col 3: Unified Button */}
+              <div className="col-span-1 flex items-center justify-center">
                 <motion.button
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.2 }}
-                  onClick={() => setShowResume(true)}
-                  className="group/preview flex flex-col items-center gap-2 text-white/40 hover:text-primary transition-all duration-300"
+                  layout
+                  onClick={
+                    showResume
+                      ? () => {
+                          setShowResume(false);
+                          setSelectedCompany(null);
+                        }
+                      : () => setShowResume(true)
+                  }
+                  className={cn(
+                    "group/preview flex flex-col items-center gap-2 transition-all duration-500 min-w-[110px]",
+                    showResume
+                      ? "text-white/40 hover:text-white"
+                      : "text-white/40 hover:text-primary",
+                  )}
                 >
-                  <div className="w-12 h-12 flex items-center justify-center rounded-full bg-primary/10 border border-primary/20 group-hover/preview:bg-primary/20 group-hover/preview:border-primary/40 group-hover/preview:scale-110 transition-all duration-500 shadow-[0_0_20px_rgba(var(--primary),0.05)] relative overflow-hidden">
-                    <FileText className="w-5 h-5 transition-all duration-500 group-hover/preview:opacity-0 group-hover/preview:scale-50 group-hover/preview:rotate-12" />
-                    <ArrowUpRight className="w-5 h-5 absolute opacity-0 scale-50 -rotate-12 group-hover/preview:opacity-100 group-hover/preview:scale-100 group-hover/preview:rotate-0 transition-all duration-500" />
+                  <motion.div
+                    layout
+                    className={cn(
+                      "w-12 h-12 flex items-center justify-center rounded-full transition-all duration-500 relative overflow-hidden",
+                      showResume
+                        ? "bg-white/5 border border-white/10 group-hover/preview:bg-white/10 group-hover/preview:border-white/20 shadow-[0_0_20px_rgba(255,255,255,0.05)]"
+                        : "bg-primary/10 border border-primary/20 group-hover/preview:bg-primary/20 group-hover/preview:border-primary/40 shadow-[0_0_20px_rgba(var(--primary),0.05)]",
+                    )}
+                  >
+                    <AnimatePresence mode="wait" initial={false}>
+                      <motion.div
+                        key={showResume ? "back" : "eye"}
+                        initial={{ opacity: 0, scale: 0.5, rotate: showResume ? -45 : 45 }}
+                        animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                        exit={{ opacity: 0, scale: 0.5, rotate: showResume ? 45 : -45 }}
+                        transition={{ type: "spring", stiffness: 400, damping: 28 }}
+                      >
+                        {showResume ? (
+                          <ChevronLeft className="w-5 h-5 transition-all duration-500 group-hover/preview:-translate-x-0.5" />
+                        ) : (
+                          <Eye className="w-5 h-5 transition-all duration-500 group-hover/preview:scale-110" />
+                        )}
+                      </motion.div>
+                    </AnimatePresence>
+                  </motion.div>
+
+                  <div className="h-3 flex items-center justify-center overflow-hidden">
+                    <AnimatePresence mode="wait" initial={false}>
+                      <motion.span
+                        key={showResume ? "back" : "eye"}
+                        initial={{ y: 8, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        exit={{ y: -8, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="text-[9px] font-black uppercase tracking-[0.2em] whitespace-nowrap"
+                      >
+                        {showResume ? "Back" : "View Sample"}
+                      </motion.span>
+                    </AnimatePresence>
                   </div>
-                  <span className="text-[9px] font-black uppercase tracking-[0.2em]">
-                    View Sample
-                  </span>
                 </motion.button>
               </div>
 
@@ -714,29 +780,19 @@ function CompanyFitCard({
                     animate={{ opacity: 1, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}
                     transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                    className="mt-4 pt-4 border-t border-white/10"
+                    className="mt-6 pt-6 border-t border-white/10 col-span-full"
                   >
-                    <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center justify-between mb-4">
                       <span className="text-[10px] font-black uppercase tracking-widest text-white/60">
-                        Sample Resume
+                        One of our similar revamps
                       </span>
-                      <button
-                        onClick={() => setShowResume(false)}
-                        className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/40 hover:text-white hover:bg-white/10 transition-all"
-                      >
-                        <ChevronLeft className="w-3 h-3" />
-                        <span className="text-[10px] font-bold uppercase tracking-widest">
-                          Back
-                        </span>
-                      </button>
                     </div>
-                    <div className="h-[300px] bg-white/5 rounded-2xl border border-white/10 overflow-hidden">
-                      <PdfAnnotator
-                        pdfUrl={`/api/resume-revamp/proxy-pdf?url=${encodeURIComponent(compiledPdfUrl || "/sample-resume.pdf")}`}
-                        revampedResume={null}
-                        documentId="sample-resume"
-                        focusHighlightId={null}
-                        focusSignal={0}
+
+                    {/* Clean "Paper on a desk" presentation */}
+                    <div className="w-full">
+                      <SimplePdfViewer
+                        pdfUrl="/sample-resume.pdf"
+                        className="max-h-[600px] rounded-xl border border-white/5 shadow-2xl"
                       />
                     </div>
                   </motion.div>
