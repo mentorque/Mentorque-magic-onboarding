@@ -214,11 +214,6 @@ function BentoCard({
 }) {
   return (
     <motion.div
-      layout
-      transition={{
-        layout: { type: "spring", stiffness: 300, damping: 30 },
-        opacity: { duration: 0.2 },
-      }}
       className={cn(
         "relative rounded-[2rem] border border-blue-400/20 bg-blue-950/20 backdrop-blur-xl p-5 flex flex-col gap-4 overflow-hidden shadow-2xl transition-all duration-500 hover:bg-blue-950/30 hover:border-blue-400/30 group/card",
         className,
@@ -316,7 +311,7 @@ function KeyChangesCard({ changes }: { changes: BulletChange[] }) {
     >
       <div className="h-full flex flex-col gap-5">
         {/* ── Card content viewport with smooth transitions ── */}
-        <div className="flex-1 min-h-0 relative">
+        <div className="flex-1 min-h-0 relative overflow-hidden">
           <AnimatePresence mode="popLayout" custom={{ direction: dir, action: animAction }} initial={false}>
             <motion.div
               key={`${displayIdx}-${isFlipped ? "insight" : "diff"}`}
@@ -891,7 +886,7 @@ function SectionAnalysis({ changes }: { changes: BulletChange[] }) {
       </div>
 
       {/* Bento Layout (Section Specific) */}
-      <div className="pb-8 relative">
+      <div className="pb-8 relative overflow-hidden">
         <AnimatePresence mode="popLayout" custom={dir}>
           <motion.div
             key={currentSection}
@@ -1000,7 +995,7 @@ export function ComparisonView({
         </div>
 
         {/* RIGHT — Analysis + Studio */}
-        <div className="overflow-y-auto flex flex-col gap-4 pr-6 custom-scrollbar h-full">
+        <div className="overflow-y-auto overflow-x-hidden flex flex-col gap-4 pr-6 custom-scrollbar h-full">
           {/* Tabs */}
           <div className="sticky top-0 z-20 pt-2 pb-3">
             <div className="w-full grid grid-cols-2 rounded-2xl border border-blue-400/20 bg-blue-950/20 backdrop-blur-xl p-1 shadow-[0_8px_30px_rgba(0,0,0,0.35)]">
