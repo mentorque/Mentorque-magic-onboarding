@@ -22,7 +22,8 @@ function getClient(): OpenAI {
 
 export interface RevampQuestion {
   id: string;
-  question: string;
+  question: string; 
+  //hello
   hint: string;
   /** Question input type — 'text' for free-form, 'mcq' for multiple choice */
   questionType: 'text' | 'mcq';
