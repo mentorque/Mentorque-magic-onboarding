@@ -1054,6 +1054,16 @@ export function OnboardingFlow() {
       }
       try {
         const idToken = await firebaseUser.getIdToken();
+        // Populate the store immediately from Firebase so the user widget
+        // always renders, even if the backend sync is slow or fails.
+        setAuth(
+          {
+            id: firebaseUser.uid,
+            email: firebaseUser.email,
+            name: firebaseUser.displayName,
+          },
+          idToken,
+        );
         const response = await fetch(withApiBase("/api/auth/sync"), {
           method: "POST",
           headers: {
@@ -1206,28 +1216,7 @@ export function OnboardingFlow() {
     setOnboardingSubmissionId(null);
     commitResumeText("");
     if (typeof window !== "undefined") {
-      localStorage.removeItem(SUBMISSION_STORAGE_KEY);
-      localStorage.removeItem(FORM_SUBMITTED_KEY);
-      localStorage.removeItem(INPUT_LOCKED_STORAGE_KEY);
-      localStorage.removeItem(CURRENT_STEP_STORAGE_KEY);
-      [
-        "basicDetails_firstName",
-        "basicDetails_lastName",
-        "basicDetails_phone",
-        "basicDetails_location",
-        "basicDetails_linkedin",
-        "workExp_company",
-        "workExp_jobTitle",
-        "workExp_yearsExp",
-        "workExp_teamSize",
-        "workExp_impact",
-        "workExp_revenueImpact",
-        "workExp_topStat",
-        "jobPrefs_targetRole",
-        "jobPrefs_country",
-        "jobPrefs_seniority",
-        "jobPrefs_workStyle",
-      ].forEach((k) => localStorage.removeItem(k));
+      localStorage.clear();
     }
     setInputsCompleteLocked(false);
     setReturningUserRevealOnly(false);
@@ -1532,24 +1521,26 @@ export function OnboardingFlow() {
         <h1 className="text-base font-bold text-foreground">mentorque</h1>
       </div>
 
-      {user && (
-        <div className="fixed top-4 right-4 z-30 flex max-w-[min(22rem,calc(100vw-2rem))] flex-col items-end gap-1 rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-right text-xs backdrop-blur-md">
-          <span className="font-medium text-foreground">
-            {user.name ?? user.fullName ?? user.email ?? "Signed in"}
-          </span>
-          <span className="font-mono text-[10px] text-muted-foreground">
-            ID: {user.mentorqueUserId ?? user.id}
-          </span>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="mt-1 inline-flex items-center gap-1 rounded-lg border border-white/15 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-foreground/90 hover:bg-white/10"
-          >
-            <LogOut className="h-3 w-3" />
-            Log out
-          </button>
-        </div>
-      )}
+      <div className="fixed top-4 right-4 z-30 flex max-w-[min(22rem,calc(100vw-2rem))] flex-col items-end gap-1 rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-right text-xs backdrop-blur-md">
+        {user && (
+          <>
+            <span className="font-medium text-foreground">
+              {user.name ?? user.fullName ?? user.email ?? "Signed in"}
+            </span>
+            <span className="font-mono text-[10px] text-muted-foreground">
+              ID: {user.mentorqueUserId ?? user.id}
+            </span>
+          </>
+        )}
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="mt-1 inline-flex items-center gap-1 rounded-lg border border-white/15 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-foreground/90 hover:bg-white/10"
+        >
+          <LogOut className="h-3 w-3" />
+          Log out
+        </button>
+      </div>
 
       <div className="fixed top-3 left-1/2 -translate-x-1/2 z-20">
         <AnimatePresence>
