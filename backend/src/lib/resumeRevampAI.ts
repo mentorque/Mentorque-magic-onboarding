@@ -86,39 +86,87 @@ export interface RevampResult {
   changes: BulletChange[];
 }
 
+// ── Context types ─────────────────────────────────────────────────────────────
+
+export interface QuestionGenerationContext {
+  workExperience?: {
+    company?: string;
+    jobTitle?: string;
+    yearsExp?: string;
+    teamSize?: string;
+    impact?: string;
+    revenueImpact?: string;
+    topStat?: string;
+  };
+  preferences?: {
+    targetRole?: string;
+    country?: string;
+    seniority?: string;
+    workStyle?: string;
+  };
+}
+
 // ─── 1. Question generation ───────────────────────────────────────────────────
 
 export async function generateQuestionsFromResume(
   parsedResume: any,
+  context?: QuestionGenerationContext,
 ): Promise<RevampQuestion[]> {
   const client = getClient();
 
-  // Build a compact summary so we don't blow the token budget
-  const summary = {
+  const { workExperience = {}, preferences = {} } = context ?? {};
+
+  // Build a compact resume summary (avoid blowing token budget)
+  const resumeSummary = {
     name: `${parsedResume.personalInfo?.firstName || ''} ${parsedResume.personalInfo?.lastName || ''}`.trim(),
-    summary: parsedResume.professionalSummary?.slice(0, 200),
-    experienceRoles: (parsedResume.experience || []).map((e: any) => `${e.position} @ ${e.company}`),
-    skills: (parsedResume.skills || []).slice(0, 15),
+    currentTitle: parsedResume.experience?.[0]?.position,
+    summary: parsedResume.professionalSummary?.slice(0, 300),
+    experienceRoles: (parsedResume.experience || []).map((e: any) => `${e.position} @ ${e.company} (${e.startDate ?? ''}–${e.endDate ?? ''})`),
+    skills: (parsedResume.skills || []).slice(0, 20),
     projects: (parsedResume.projects || []).map((p: any) => p.name),
+    educationInstitutions: (parsedResume.education || []).map((e: any) => e.institution),
   };
 
-  const prompt = `You are a professional career coach for Mentorque, a mentorship platform.
+  // Build context block — what we ALREADY KNOW (so AI doesn't ask again)
+  const knownContext: string[] = [];
+  if (preferences.targetRole) knownContext.push(`Target role: ${preferences.targetRole}`);
+  if (preferences.seniority) knownContext.push(`Target seniority: ${preferences.seniority}`);
+  if (preferences.country) knownContext.push(`Target country/market: ${preferences.country}`);
+  if (preferences.workStyle) knownContext.push(`Preferred work style: ${preferences.workStyle}`);
+  if (workExperience.company) knownContext.push(`Current/most recent company: ${workExperience.company}`);
+  if (workExperience.jobTitle) knownContext.push(`Current job title: ${workExperience.jobTitle}`);
+  if (workExperience.yearsExp) knownContext.push(`Years of experience: ${workExperience.yearsExp}`);
+  if (workExperience.teamSize) knownContext.push(`Team size managed/worked in: ${workExperience.teamSize}`);
+  if (workExperience.impact) knownContext.push(`Self-reported key impact: ${workExperience.impact}`);
+  if (workExperience.revenueImpact) knownContext.push(`Revenue/cost impact mentioned: ${workExperience.revenueImpact}`);
+  if (workExperience.topStat) knownContext.push(`Top achievement stat: ${workExperience.topStat}`);
 
-Analyze this candidate's professional profile holistically and generate exactly 5 insightful questions to understand their crux before revamping their resume.
+  const knownContextBlock = knownContext.length
+    ? `━━━ WHAT WE ALREADY KNOW (DO NOT ASK ABOUT THESE AGAIN) ━━━\n${knownContext.join('\n')}`
+    : '';
+
+  const prompt = `You are a world-class career coach at Mentorque, a professional mentorship platform.
+
+Your task: Generate exactly 5 laser-focused questions that will unlock information MISSING from this candidate's resume, so a human career expert can craft a truly differentiated, metrics-rich resume revamp targeting the role and seniority described below.
+
+${knownContextBlock}
+
+━━━ CANDIDATE RESUME SUMMARY ━━━
+${JSON.stringify(resumeSummary, null, 2)}
+
+━━━ YOUR GOAL ━━━
+Generate 5 questions that surface ONLY what we DON'T already know:
+- Specific measurable achievements or metrics NOT yet mentioned (numbers, %, $, scale)
+- What makes this candidate stand out vs other ${preferences.seniority ?? 'senior'} ${preferences.targetRole ?? 'candidates'} in ${preferences.country ?? 'their market'}
+- A notable career-defining project or win that didn't make it onto the resume
+- Any domain/industry expertise or niche skills that differentiate them for this target role
+- Anything a ${preferences.targetRole ?? 'hiring manager'} at a top company would immediately want to know
+
+DO NOT ask about: target role, target country, years of experience, team size, or anything in the "WHAT WE ALREADY KNOW" section above.
 
 MIX question types strategically:
-- Use "mcq" for questions where you can anticipate reasonable options (target role, industry focus, career stage, work preference)
-- Use "text" for open-ended questions requiring personal context (biggest achievement, unique contribution, career goals)
-
-Goals:
-- Understand what role/level they're targeting next
-- Uncover their most impactful achievement across all experiences
-- Identify their domain expertise and industry focus
-- Surface what makes them unique vs peers
-- Clarify metrics they can quantify but didn't list
-
-Candidate summary:
-${JSON.stringify(summary, null, 2)}
+- Use "mcq" where you can offer meaningful, role-specific choices (e.g. domain specialization, key strength category)
+- Use "text" for open-ended questions requiring the candidate's personal context and specific examples
 
 Return ONLY a JSON object with a "questions" array. No markdown, no preamble.
 
@@ -127,8 +175,8 @@ Schema:
   "questions": [
     {
       "id": "q1",
-      "question": "Specific question text — reference their actual companies/roles where relevant",
-      "hint": "Short example answer or guidance (1 sentence)",
+      "question": "Specific question — reference their actual companies/roles/projects where possible",
+      "hint": "Short guidance or example answer (1 sentence)",
       "questionType": "text" | "mcq",
       "options": ["Option A", "Option B", "Option C", "Option D"],
       "section": "experience" | "skills" | "summary" | "general"
@@ -137,15 +185,16 @@ Schema:
 }
 
 Rules:
-- Generate EXACTLY 5 questions
+- Exactly 5 questions
 - At least 2 MCQ and at least 2 text questions
-- MCQ options must be relevant to this specific candidate's profile
-- Reference their actual companies, roles, and projects in questions`;
+- MCQ options must be tailored to THIS candidate's background and target role
+- Questions must feel like they come from someone who read the resume carefully
+- NO generic questions ("What are your strengths?", "Where do you want to be in 5 years?")`;
 
   const response = await client.chat.completions.create({
     model: MODEL,
     messages: [
-      { role: 'system', content: 'You are a career coach. Return only valid JSON with questionType field.' },
+      { role: 'system', content: 'You are an expert career coach. Return only valid JSON with a "questions" array.' },
       { role: 'user', content: prompt },
     ],
     temperature: 0.45,

@@ -64,6 +64,14 @@ export const onboardingSubmissionsTable = pgTable("onboarding_submissions", {
     () => resumeSettingsTable.id,
     { onDelete: "set null" },
   ),
+  /** AI-structured resume JSON from parseResumeText() — generated at form-submission time */
+  parsedResume: json("parsed_resume"),
+  /** RevampQuestion[] enriched with work experience + preferences context */
+  aiQuestions: json("ai_questions"),
+  /** Record<questionId, answer> submitted by user after reviewing AI questions */
+  questionnaireAnswers: json("questionnaire_answers"),
+  /** { revampedResume, changes, compiledPdfUrl } stored after client-side revamp call */
+  revampResult: json("revamp_result"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
