@@ -1273,17 +1273,12 @@ export function OnboardingFlow() {
   );
 
   const submitFormAndOpenRevamp = async () => {
-    if (!canProceedPrefs) return;
-    // Guard: resume text is required for AI question generation
-    if (!uploadedResumeText.trim()) {
-      setFormSubmitError(
-        "Please upload your resume before continuing. We need it to generate personalized questions.",
-      );
-      return;
-    }
     const u = useAuthStore.getState().user;
     const token = useAuthStore.getState().token;
-    if (!u?.id || !token) return;
+    if (!u?.id || !token) {
+      setFormSubmitError("You must be logged in to continue.");
+      return;
+    }
     setFormSubmitError(null);
     setIsSubmittingForm(true);
     try {
@@ -2170,12 +2165,11 @@ export function OnboardingFlow() {
                       <GlassButton
                         type="button"
                         onClick={() => void submitFormAndOpenRevamp()}
-                        disabled={!canProceedPrefs || isSubmittingForm}
+                        disabled={isSubmittingForm}
                         contentClassName="flex items-center gap-2"
                         className={cn(
                           "transition-opacity",
-                          (!canProceedPrefs || isSubmittingForm) &&
-                            "opacity-40",
+                          isSubmittingForm && "opacity-40",
                         )}
                       >
                         {isSubmittingForm ? (
