@@ -5,6 +5,7 @@
  * Endpoints:
  *   GET    /api/highlights?documentUrl=...  — fetch all review comments for a PDF
  *   POST   /api/highlights                  — save a new review comment
+ *   PATCH  /api/highlights/:id/comments    — append a reply (requires inReplyToId → parent comment id)
  *   DELETE /api/highlights/:id              — delete a highlight
  *   PATCH  /api/highlights/:id/resolve      — resolve/unresolve thread
  *   POST   /api/highlights/ai-review        — AI review of selected text
@@ -13,10 +14,25 @@
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { highlightsTable } from "@workspace/db";
+import type { HighlightComment } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import OpenAI from "openai";
 
 const router = Router();
+
+function generateCommentId(): string {
+  const ts = Date.now().toString(36);
+  const r1 = Math.random().toString(36).substring(2, 11);
+  const r2 = Math.random().toString(36).substring(2, 11);
+  return `c${ts}${r1}${r2}`;
+}
+
+function ensureCommentIds(comments: HighlightComment[]): HighlightComment[] {
+  return comments.map((c) => ({
+    ...c,
+    id: c.id && String(c.id).trim() ? c.id : generateCommentId(),
+  }));
+}
 
 function getOpenAI(): OpenAI {
   const apiKey = process.env.OPEN_AI_KEY || process.env.OPENAI_API_KEY;
@@ -85,6 +101,10 @@ router.post("/", async (req: Request, res: Response) => {
   }
 
   try {
+    const normalizedComments = ensureCommentIds(
+      Array.isArray(comments) ? (comments as HighlightComment[]) : [],
+    );
+
     const [highlight] = await db
       .insert(highlightsTable)
       .values({
@@ -97,7 +117,7 @@ router.post("/", async (req: Request, res: Response) => {
         pageNumber: position.pageNumber ?? 1,
         position,
         content,
-        comments: comments ?? [],
+        comments: normalizedComments,
       })
       .returning();
     return res.json({ success: true, highlight });
@@ -136,6 +156,79 @@ Keep feedback under 3 sentences. Be specific — reference the exact wording and
 
     const suggestion = completion.choices[0]?.message?.content?.trim() ?? "No suggestion available.";
     return res.json({ success: true, suggestion });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─── PATCH /api/highlights/:highlightId/comments ─────────────────────────────
+// Append a reply (or top-level comment) to an existing highlight's comments JSON.
+router.patch("/:id/comments", async (req: Request, res: Response) => {
+  const highlightId =
+    typeof req.params.id === "string" ? req.params.id : req.params.id?.[0];
+  if (!highlightId) {
+    return res.status(400).json({ success: false, message: "id is required." });
+  }
+
+  const { text, type, author, role, inReplyToId } = req.body ?? {};
+  if (typeof text !== "string" || !text.trim()) {
+    return res
+      .status(400)
+      .json({ success: false, message: "text is required for the new comment." });
+  }
+
+  try {
+    const [row] = await db
+      .select()
+      .from(highlightsTable)
+      .where(eq(highlightsTable.id, highlightId));
+    if (!row) {
+      return res.status(404).json({ success: false, message: "Highlight not found." });
+    }
+
+    let existing = ensureCommentIds(
+      Array.isArray(row.comments) ? (row.comments as HighlightComment[]) : [],
+    );
+
+    const parentId =
+      typeof inReplyToId === "string" && inReplyToId.trim()
+        ? inReplyToId.trim()
+        : null;
+    if (!parentId) {
+      return res.status(400).json({
+        success: false,
+        message: "inReplyToId is required (reply to which comment).",
+      });
+    }
+    if (!existing.some((c) => c.id === parentId)) {
+      return res.status(400).json({
+        success: false,
+        message: "inReplyToId must reference an existing comment on this highlight.",
+      });
+    }
+
+    const newComment: HighlightComment = {
+      id: generateCommentId(),
+      type: type === "ai" ? "ai" : "human",
+      text: text.trim(),
+      author: typeof author === "string" ? author : undefined,
+      role: typeof role === "string" ? role : undefined,
+      createdAt: new Date().toISOString(),
+      inReplyToId: parentId,
+    };
+
+    existing = [...existing, newComment];
+
+    const [updated] = await db
+      .update(highlightsTable)
+      .set({
+        comments: existing,
+        updatedAt: new Date(),
+      })
+      .where(eq(highlightsTable.id, highlightId))
+      .returning();
+
+    return res.json({ success: true, highlight: updated });
   } catch (err: any) {
     return res.status(500).json({ success: false, message: err.message });
   }

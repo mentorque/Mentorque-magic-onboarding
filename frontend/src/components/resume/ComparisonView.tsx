@@ -1081,7 +1081,9 @@ export function ComparisonView({
           (h: any) => {
             const selectedText = h?.content?.text;
             const comments = Array.isArray(h?.comments) ? h.comments : [];
-            return comments.map((c: any) => ({
+            return comments
+              .filter((c: any) => !c?.inReplyToId)
+              .map((c: any) => ({
               highlightId: h.id,
               type: c?.type === "ai" ? "ai" : "human",
               text: String(c?.text ?? ""),

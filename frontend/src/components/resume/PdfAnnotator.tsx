@@ -5,7 +5,7 @@
  *   - Text selection → floating popup with [Ask AI] and [Add Note]
  *   - Highlights rendered as colour overlays on the PDF page
  *   - AI review via POST /api/highlights/ai-review
- *   - Persist/delete highlights via POST|DELETE /api/highlights
+ *   - Persist/delete highlights via POST|DELETE /api/highlights; replies via PATCH /api/highlights/:id/comments
  *   - Click a highlight to view its saved comments
  *
  * Uses react-pdf for rendering (already installed) + a transparent
@@ -27,6 +27,7 @@ import {
   Trash2,
   Bot,
   Send,
+  Reply,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { withApiBase } from "@/lib/apiBaseUrl";
@@ -55,11 +56,68 @@ export interface HighlightPosition {
 }
 
 export interface HighlightComment {
+  id?: string;
+  inReplyToId?: string | null;
   type: "ai" | "human";
   text: string;
   author?: string;
   role?: string;
   createdAt: string;
+}
+
+function generateCommentId(): string {
+  const ts = Date.now().toString(36);
+  const r = Math.random().toString(36).substring(2, 11);
+  return `c${ts}${r}`;
+}
+
+function normalizeCommentsForHighlight(
+  highlightId: string,
+  raw: unknown,
+): HighlightComment[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((c: any, i: number) => ({
+    type: c?.type === "ai" ? "ai" : "human",
+    text: String(c?.text ?? ""),
+    author: typeof c?.author === "string" ? c.author : undefined,
+    role: typeof c?.role === "string" ? c.role : undefined,
+    createdAt: String(c?.createdAt ?? new Date().toISOString()),
+    id:
+      typeof c?.id === "string" && c.id.trim()
+        ? c.id.trim()
+        : `${highlightId}-c${i}`,
+    inReplyToId:
+      typeof c?.inReplyToId === "string" && c.inReplyToId.trim()
+        ? c.inReplyToId.trim()
+        : null,
+  }));
+}
+
+function normalizeHighlight(raw: any): Highlight {
+  const id = String(raw?.id ?? "");
+  return {
+    id,
+    documentUrl: String(raw?.documentUrl ?? ""),
+    position: raw.position,
+    content: raw.content ?? {},
+    comments: normalizeCommentsForHighlight(id, raw?.comments),
+  };
+}
+
+function repliesToParent(
+  all: HighlightComment[],
+  parentId: string,
+): HighlightComment[] {
+  return all
+    .filter((c) => c.inReplyToId === parentId)
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+}
+
+function rootComments(all: HighlightComment[]): HighlightComment[] {
+  return all.filter((c) => !c.inReplyToId);
 }
 
 export interface Highlight {
@@ -284,23 +342,233 @@ function SelectionPopup({
 
 // ─── HighlightDetail ──────────────────────────────────────────────────────────
 
+function CommentBubble({
+  comment,
+  allComments,
+  depth,
+  expandedThreads,
+  toggleReplies,
+  replyingToId,
+  setReplyingToId,
+  replyDraft,
+  setReplyDraft,
+  postReply,
+  posting,
+}: {
+  comment: HighlightComment;
+  allComments: HighlightComment[];
+  depth: number;
+  expandedThreads: Record<string, boolean>;
+  toggleReplies: (commentId: string) => void;
+  replyingToId: string | null;
+  setReplyingToId: (id: string | null) => void;
+  replyDraft: string;
+  setReplyDraft: (s: string) => void;
+  postReply: (parentCommentId: string) => void;
+  posting: boolean;
+}) {
+  const cid = comment.id ?? "";
+  const childComments = repliesToParent(allComments, cid);
+  const hasReplies = childComments.length > 0;
+  const repliesOpen = expandedThreads[cid] === true;
+  const showReplyBox = replyingToId === cid;
+
+  return (
+    <div
+      className={cn(
+        "flex flex-col gap-2 min-w-0",
+        depth > 0 && "mt-1 pt-2 border-t border-white/[0.06]",
+      )}
+    >
+      <div
+        className={cn(
+          "rounded-xl p-3 text-xs leading-relaxed transition-all duration-200",
+          comment.type === "ai"
+            ? "bg-violet-500/10 border border-violet-500/20 text-violet-200"
+            : "bg-amber-500/10 border border-amber-500/20 text-amber-200",
+          repliesOpen && hasReplies && "shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]",
+        )}
+      >
+        <div className="flex items-center gap-1.5 mb-1.5 opacity-60">
+          {comment.type === "ai" ? (
+            <Bot className="w-3 h-3 shrink-0" />
+          ) : (
+            <MessageSquare className="w-3 h-3 shrink-0" />
+          )}
+          <span className="text-[9px] font-black uppercase tracking-widest truncate">
+            {comment.type === "ai"
+              ? "AI Review"
+              : [comment.author ?? "You", comment.role].filter(Boolean).join(" · ")}
+          </span>
+        </div>
+        <p className="whitespace-pre-wrap break-words">{comment.text}</p>
+
+        <div className="flex flex-wrap items-center gap-2 mt-2">
+          <button
+            type="button"
+            onClick={() => {
+              setReplyingToId(showReplyBox ? null : cid);
+              if (!showReplyBox) setReplyDraft("");
+            }}
+            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-white/50 hover:text-white/90 hover:bg-white/10 transition-colors"
+          >
+            <Reply className="w-3 h-3" />
+            Reply
+          </button>
+          {hasReplies && (
+            <button
+              type="button"
+              onClick={() => toggleReplies(cid)}
+              className="text-[10px] font-bold uppercase tracking-widest text-sky-300/80 hover:text-sky-200"
+            >
+              {repliesOpen ? "Hide replies" : `Show replies (${childComments.length})`}
+            </button>
+          )}
+        </div>
+
+        {showReplyBox && (
+          <div className="mt-3 flex flex-col gap-2 border-t border-white/10 pt-3">
+            <textarea
+              autoFocus
+              value={replyDraft}
+              onChange={(e) => setReplyDraft(e.target.value)}
+              placeholder="Write a reply…"
+              rows={2}
+              disabled={posting}
+              className="w-full rounded-xl bg-white/5 border border-white/10 text-white/80 text-xs p-2.5 resize-none placeholder:text-white/25 focus:outline-none focus:border-white/20 disabled:opacity-50"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setReplyingToId(null);
+                  setReplyDraft("");
+                }}
+                className="px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-white/40 hover:text-white/70"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={posting || !replyDraft.trim()}
+                onClick={() => postReply(cid)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-sky-500/20 border border-sky-400/30 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-sky-200 hover:bg-sky-500/30 disabled:opacity-40"
+              >
+                {posting ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Send className="w-3 h-3" />
+                )}
+                Send
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {hasReplies && repliesOpen && (
+        <div className="ml-2 pl-3 border-l border-white/15 flex flex-col gap-2">
+          {childComments.map((child) => (
+            <CommentBubble
+              key={child.id}
+              comment={child}
+              allComments={allComments}
+              depth={depth + 1}
+              expandedThreads={expandedThreads}
+              toggleReplies={toggleReplies}
+              replyingToId={replyingToId}
+              setReplyingToId={setReplyingToId}
+              replyDraft={replyDraft}
+              setReplyDraft={setReplyDraft}
+              postReply={postReply}
+              posting={posting}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function HighlightDetail({
   highlight,
   anchor,
   onDelete,
   onClose,
+  annotation,
+  onHighlightUpdated,
 }: {
   highlight: Highlight;
   anchor: { leftPct: number; topPct: number; placement: "right" | "below" };
   onDelete: () => void;
   onClose: () => void;
+  annotation: AnnotationAttribution | null;
+  onHighlightUpdated: (h: Highlight) => void;
 }) {
+  const [expandedThreads, setExpandedThreads] = useState<Record<string, boolean>>(
+    {},
+  );
+  const [replyingToId, setReplyingToId] = useState<string | null>(null);
+  const [replyDraft, setReplyDraft] = useState("");
+  const [posting, setPosting] = useState(false);
+
+  const toggleReplies = useCallback((commentId: string) => {
+    setExpandedThreads((prev) => ({
+      ...prev,
+      [commentId]: !prev[commentId],
+    }));
+  }, []);
+
+  const postReply = useCallback(
+    async (parentCommentId: string) => {
+      const text = replyDraft.trim();
+      if (!text) return;
+      setPosting(true);
+      try {
+        const res = await fetch(
+          withApiBase(`/api/highlights/${encodeURIComponent(highlight.id)}/comments`),
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              text,
+              type: "human",
+              inReplyToId: parentCommentId,
+              author: annotation?.displayName,
+              role: annotation?.role,
+            }),
+          },
+        );
+        const data = await res.json();
+        if (data.success && data.highlight) {
+          onHighlightUpdated(normalizeHighlight(data.highlight));
+          setReplyDraft("");
+          setReplyingToId(null);
+          setExpandedThreads((prev) => ({ ...prev, [parentCommentId]: true }));
+        }
+      } catch {
+        // keep draft
+      } finally {
+        setPosting(false);
+      }
+    },
+    [
+      highlight.id,
+      replyDraft,
+      annotation,
+      onHighlightUpdated,
+    ],
+  );
+
+  const roots = rootComments(highlight.comments);
+
   return (
     <motion.div
+      layout
       initial={{ opacity: 0, x: 8, y: -4 }}
       animate={{ opacity: 1, x: 0, y: 0 }}
       exit={{ opacity: 0, x: 8, y: -4 }}
-      className="absolute w-72 rounded-2xl border border-white/15 bg-black/90 backdrop-blur-xl shadow-2xl p-4 z-50 flex flex-col gap-3"
+      className="absolute w-80 max-w-[min(20rem,calc(100vw-2rem))] rounded-2xl border border-white/15 bg-black/90 backdrop-blur-xl shadow-2xl p-4 z-50 flex flex-col gap-3"
       style={{
         left: `${anchor.leftPct}%`,
         top: `${anchor.topPct}%`,
@@ -340,31 +608,22 @@ function HighlightDetail({
         </blockquote>
       )}
 
-      <div className="flex flex-col gap-2">
-        {highlight.comments.map((c, i) => (
-          <div
-            key={i}
-            className={cn(
-              "rounded-xl p-3 text-xs leading-relaxed",
-              c.type === "ai"
-                ? "bg-violet-500/10 border border-violet-500/20 text-violet-200"
-                : "bg-amber-500/10 border border-amber-500/20 text-amber-200",
-            )}
-          >
-            <div className="flex items-center gap-1.5 mb-1.5 opacity-60">
-              {c.type === "ai" ? (
-                <Bot className="w-3 h-3" />
-              ) : (
-                <MessageSquare className="w-3 h-3" />
-              )}
-              <span className="text-[9px] font-black uppercase tracking-widest">
-                {c.type === "ai"
-                  ? "AI Review"
-                  : [c.author ?? "You", c.role].filter(Boolean).join(" · ")}
-              </span>
-            </div>
-            {c.text}
-          </div>
+      <div className="flex flex-col gap-2 max-h-[min(70vh,32rem)] overflow-y-auto custom-scrollbar pr-1">
+        {roots.map((c) => (
+          <CommentBubble
+            key={c.id}
+            comment={c}
+            allComments={highlight.comments}
+            depth={0}
+            expandedThreads={expandedThreads}
+            toggleReplies={toggleReplies}
+            replyingToId={replyingToId}
+            setReplyingToId={setReplyingToId}
+            replyDraft={replyDraft}
+            setReplyDraft={setReplyDraft}
+            postReply={postReply}
+            posting={posting}
+          />
         ))}
       </div>
     </motion.div>
@@ -485,7 +744,9 @@ export function PdfAnnotator({
     fetch(withApiBase(`/api/highlights?documentUrl=${encodeURIComponent(documentId)}`))
       .then((r) => r.json())
       .then((d) => {
-        if (d.success) setHighlights(d.highlights);
+        if (d.success && Array.isArray(d.highlights)) {
+          setHighlights(d.highlights.map(normalizeHighlight));
+        }
       })
       .catch(() => {});
   }, [documentId]);
@@ -709,14 +970,18 @@ export function PdfAnnotator({
   // ── Save highlight to backend ───────────────────────────────────────────────
   const saveHighlight = useCallback(
     async (comment: HighlightComment, pos: HighlightPosition, text: string) => {
+      const withId: HighlightComment = {
+        ...comment,
+        id: comment.id ?? generateCommentId(),
+      };
       const humanNote =
-        comment.type === "human" && annotation
+        withId.type === "human" && annotation
           ? {
-              ...comment,
+              ...withId,
               author: annotation.displayName,
               role: annotation.role,
             }
-          : comment;
+          : withId;
       const res = await fetch(withApiBase("/api/highlights"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -730,12 +995,17 @@ export function PdfAnnotator({
         }),
       });
       const data = await res.json();
-      if (data.success) {
-        setHighlights((h) => [...h, data.highlight]);
+      if (data.success && data.highlight) {
+        setHighlights((h) => [...h, normalizeHighlight(data.highlight)]);
       }
     },
     [documentId, annotation],
   );
+
+  const updateHighlightInState = useCallback((h: Highlight) => {
+    setHighlights((list) => list.map((x) => (x.id === h.id ? h : x)));
+    setActiveHighlight((cur) => (cur?.id === h.id ? h : cur));
+  }, []);
 
   // ── Ask AI ──────────────────────────────────────────────────────────────────
   const handleAskAI = useCallback(async () => {
@@ -918,6 +1188,8 @@ export function PdfAnnotator({
               key={activeHighlight.id}
               highlight={activeHighlight}
               anchor={detailAnchor}
+              annotation={annotation ?? null}
+              onHighlightUpdated={updateHighlightInState}
               onDelete={() => deleteHighlight(activeHighlight.id)}
               onClose={() => setActiveHighlight(null)}
             />

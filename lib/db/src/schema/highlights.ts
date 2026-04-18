@@ -40,6 +40,10 @@ export interface HighlightContent {
 }
 
 export interface HighlightComment {
+  /** Stable id within this highlight's comments JSON (required for new data; backfilled for legacy rows). */
+  id?: string;
+  /** When set, this comment is a reply to another comment in the same highlight (by that comment's id). */
+  inReplyToId?: string | null;
   type: "ai" | "human";
   text: string;
   author?: string;
