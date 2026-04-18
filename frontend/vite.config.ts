@@ -42,7 +42,8 @@ export default defineConfig({
   },
   root: path.resolve(import.meta.dirname),
   build: {
-    outDir: path.resolve(import.meta.dirname, "dist/public"),
+    /** Single `dist/` folder — matches Vercel `outputDirectory` (`frontend/dist` from repo root). */
+    outDir: path.resolve(import.meta.dirname, "dist"),
     emptyOutDir: true,
   },
   server: {
