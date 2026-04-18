@@ -66,8 +66,13 @@ export interface BulletChange {
   coachTip: string;
 }
 
-// The three internal sub-stages of the ResumeRevampStep
-export type RevampStage = 'upload' | 'questions' | 'comparison' | 'done';
+// Internal sub-stages of the resume revamp step (`ResumeRevampStep`)
+export type RevampStage =
+  | 'upload'
+  | 'questions'
+  | 'awaitReveal'
+  | 'comparison'
+  | 'done';
 
 export interface ParseResult {
   parsedResume: any | null;

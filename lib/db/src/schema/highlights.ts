@@ -11,7 +11,6 @@ import {
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { onboardingSubmissionsTable, resumeReviewersTable } from "./onboarding";
-import { usersTable } from "./users";
 
 function generateCuid(): string {
   const ts = Date.now().toString(36);
@@ -53,9 +52,8 @@ export const highlightsTable = pgTable(
     id: varchar("id", { length: 50 })
       .primaryKey()
       .$defaultFn(() => generateCuid()),
-    userId: varchar("user_id", { length: 50 }).references(() => usersTable.id, {
-      onDelete: "set null",
-    }),
+    /** Prisma `"User".id` — FK in DB migration. */
+    userId: varchar("user_id", { length: 50 }),
     onboardingId: varchar("onboarding_id", { length: 50 }).references(
       () => onboardingSubmissionsTable.id,
       { onDelete: "cascade" },

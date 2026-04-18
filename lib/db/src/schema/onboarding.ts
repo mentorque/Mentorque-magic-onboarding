@@ -1,13 +1,14 @@
 import {
   boolean,
+  integer,
   json,
   pgTable,
+  text,
   timestamp,
   varchar,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
-import { usersTable } from "./users";
 
 function generateCuid(): string {
   const ts = Date.now().toString(36);
@@ -16,36 +17,55 @@ function generateCuid(): string {
   return `c${ts}${r1}${r2}`;
 }
 
-export const resumeSettingsTable = pgTable("resume_settings", {
-  id: varchar("id", { length: 50 })
+/**
+ * Prisma `ResumeSettings` (PascalCase table). Onboarding snapshot is stored under
+ * `customSections.mentorqueOnboarding` (see form-submission route).
+ */
+export const resumeSettingsTable = pgTable("ResumeSettings", {
+  id: text("id")
     .primaryKey()
     .$defaultFn(() => generateCuid()),
-  userId: varchar("user_id", { length: 50 })
-    .notNull()
-    .references(() => usersTable.id, { onDelete: "cascade" }),
-  name: varchar("name", { length: 255 }),
-  resumeData: json("resume_data").notNull().default({}),
-  isOnboardingResume: boolean("is_onboarding_resume").notNull().default(false),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  userId: text("userId").notNull(),
+  apiKeyId: text("apiKeyId"),
+  personalInfo: json("personalInfo").notNull().default({}),
+  professionalSummary: text("professionalSummary"),
+  education: json("education").notNull().default({}),
+  experience: json("experience").notNull().default({}),
+  skills: json("skills").notNull().default({}),
+  projects: json("projects").notNull().default({}),
+  customSections: json("customSections"),
+  skillsDisplayMode: text("skillsDisplayMode").notNull().default("twoColumnar"),
+  skillsLineTime: json("skillsLineTime"),
+  sectionOrder: json("sectionOrder").notNull().default([]),
+  sectionNames: json("sectionNames").notNull().default({}),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+  deletedAt: timestamp("deletedAt"),
+  deletedSections: json("deletedSections"),
+  name: text("name"),
+  shareToken: text("shareToken"),
+  isPrimary: boolean("isPrimary").notNull().default(false),
+  resumeTemplate: integer("resumeTemplate").notNull().default(1),
+  isOnboardingResume: boolean("isOnboardingResume").notNull().default(false),
 });
 
 export const onboardingSubmissionsTable = pgTable("onboarding_submissions", {
   id: varchar("id", { length: 50 })
     .primaryKey()
     .$defaultFn(() => generateCuid()),
-  userId: varchar("user_id", { length: 50 })
-    .notNull()
-    .references(() => usersTable.id, { onDelete: "cascade" }),
+  userId: varchar("user_id", { length: 50 }).notNull(),
   basicDetails: json("basic_details").notNull().default({}),
   preferencesTaken: json("preferences_taken").notNull().default({}),
+  uploadedResumeText: text("uploaded_resume_text"),
   revealResume: boolean("reveal_resume").notNull().default(false),
+  /** input_pending | input_complete | completed — see migration 002_onboarding_input_status.sql */
+  inputStatus: text("input_status").notNull().default("input_pending"),
   resumeSettingId: varchar("resume_setting_id", { length: 50 }).references(
     () => resumeSettingsTable.id,
     { onDelete: "set null" },
   ),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const resumeReviewersTable = pgTable("resume_reviewers", {
@@ -55,14 +75,12 @@ export const resumeReviewersTable = pgTable("resume_reviewers", {
   onboardingId: varchar("onboarding_id", { length: 50 })
     .notNull()
     .references(() => onboardingSubmissionsTable.id, { onDelete: "cascade" }),
-  userId: varchar("user_id", { length: 50 }).references(() => usersTable.id, {
-    onDelete: "set null",
-  }),
+  userId: varchar("user_id", { length: 50 }),
   name: varchar("name", { length: 255 }).notNull(),
   role: varchar("role", { length: 20 }).notNull().default("mentor"),
   inviteToken: varchar("invite_token", { length: 100 }).unique(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const insertResumeSettingSchema = createInsertSchema(resumeSettingsTable).omit({

@@ -143,7 +143,10 @@ Keep feedback under 3 sentences. Be specific — reference the exact wording and
 
 // ─── DELETE /api/highlights/:id ───────────────────────────────────────────────
 router.delete("/:id", async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = typeof req.params.id === "string" ? req.params.id : req.params.id?.[0];
+  if (!id) {
+    return res.status(400).json({ success: false, message: "id is required." });
+  }
   try {
     await db.delete(highlightsTable).where(eq(highlightsTable.id, id));
     return res.json({ success: true });
@@ -154,7 +157,10 @@ router.delete("/:id", async (req: Request, res: Response) => {
 
 // ─── PATCH /api/highlights/:id/resolve ─────────────────────────────────────────
 router.patch("/:id/resolve", async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = typeof req.params.id === "string" ? req.params.id : req.params.id?.[0];
+  if (!id) {
+    return res.status(400).json({ success: false, message: "id is required." });
+  }
   const { isResolved } = req.body ?? {};
   if (typeof isResolved !== "boolean") {
     return res

@@ -14,6 +14,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import {
   ArrowRight,
   ArrowLeft,
+  LogOut,
   X,
   AlertCircle,
   Loader,
@@ -42,9 +43,11 @@ import confetti from "canvas-confetti";
 import { ResumeRevampStep } from "../steps/ResumeRevampStep";
 import { BlurFade, GlassButton, TextLoop } from "./ui/OnboardingUI";
 // Add these to your existing imports
-import { signInWithPopup } from "firebase/auth";
+import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
 import { auth, googleProvider } from "@/lib/firebase";
 import { useAuthStore } from "@/store/useAuthStore";
+import { isInputSavedInDb } from "@/lib/onboardingInputStatus";
+import { ResumeTextOnlyPanel } from "./resume/ResumeTextOnlyPanel";
 
 type Api = { fire: (options?: ConfettiOptions) => void };
 export type ConfettiRef = Api | null;
@@ -308,6 +311,7 @@ const GLASS_STYLES = `
 type OnboardingStep =
   | "login"
   | "basics"
+  | "uploadResume"
   | "workExperience"
   | "jobPreferences"
   | "resumeRevamp"
@@ -316,11 +320,20 @@ type OnboardingStep =
 const STEPS: OnboardingStep[] = [
   "login",
   "basics",
+  "uploadResume",
   "workExperience",
   "jobPreferences",
   "resumeRevamp",
   "submitted",
 ];
+
+const SUBMISSION_STORAGE_KEY = "mentorque_onboarding_submission_id";
+/** Set after successful `POST /api/onboarding/form-submission` — returning sessions skip to resume revamp. */
+const FORM_SUBMITTED_KEY = "mentorque_onboarding_form_submitted";
+/** Local hint: DB `input_status` is input_complete or completed — user stays on reveal flow only. */
+const INPUT_LOCKED_STORAGE_KEY = "mentorque_onboarding_inputs_complete";
+/** Raw resume text from upload/paste — mirrored so Experience / revamp never lose it on navigation. */
+const RESUME_TEXT_STORAGE_KEY = "mentorque_onboarding_resume_text";
 
 /** Wider column, responsive; parent uses flex + justify-center to center each step */
 const STEP_OUTER =
@@ -741,11 +754,13 @@ const MentorqueLogo = () => (
 );
 
 export function OnboardingFlow() {
-  const [step, setStep] = useState<OnboardingStep>(() => {
+  const [step, setStepInternal] = useState<OnboardingStep>(() => {
     if (typeof window !== "undefined") {
       const path = window.location.pathname;
-      if (path === "/resume-revamp") return "resumeRevamp";
+      if (path === "/resume-revamp" || path === "/resume-revamp-reveal")
+        return "resumeRevamp";
       if (path === "/almost-ready") return "submitted";
+      if (path === "/upload-resume") return "uploadResume";
       if (path === "/onboarding-form") return "basics";
       if (path === "/get-started" || path === "/") return "login";
     }
@@ -786,7 +801,181 @@ export function OnboardingFlow() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const setAuth = useAuthStore((state) => state.setAuth);
+  const clearAuth = useAuthStore((state) => state.clearAuth);
   const user = useAuthStore((state) => state.user);
+  const authToken = useAuthStore((state) => state.token);
+
+  const [onboardingSubmissionId, setOnboardingSubmissionId] = useState<
+    string | null
+  >(() =>
+    typeof window !== "undefined"
+      ? localStorage.getItem(SUBMISSION_STORAGE_KEY)
+      : null,
+  );
+  /** `/resume-revamp-reveal` — hide main onboarding stepper (synced from `ResumeRevampStep`). */
+  const [resumeRevampRevealRoute, setResumeRevampRevealRoute] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.location.pathname === "/resume-revamp-reveal",
+  );
+
+  const [inputsCompleteLocked, setInputsCompleteLocked] = useState(() =>
+    typeof window !== "undefined"
+      ? localStorage.getItem(INPUT_LOCKED_STORAGE_KEY) === "1"
+      : false,
+  );
+  /** True only after login when DB already had `input_complete` — skip upload/questions, reveal-only. */
+  const [returningUserRevealOnly, setReturningUserRevealOnly] = useState(false);
+
+  const setStep = useCallback(
+    (next: OnboardingStep) => {
+      if (next === "login") {
+        setStepInternal("login");
+        return;
+      }
+      if (
+        inputsCompleteLocked &&
+        next !== "resumeRevamp" &&
+        next !== "submitted"
+      ) {
+        setStepInternal("resumeRevamp");
+        setResumeRevampRevealRoute(true);
+        if (typeof window !== "undefined") {
+          window.history.replaceState(null, "", "/resume-revamp-reveal");
+        }
+        return;
+      }
+      setStepInternal(next);
+    },
+    [inputsCompleteLocked],
+  );
+
+  useEffect(() => {
+    const syncRevealFromUrl = () => {
+      if (typeof window === "undefined") return;
+      setResumeRevampRevealRoute(
+        window.location.pathname === "/resume-revamp-reveal",
+      );
+    };
+    window.addEventListener("popstate", syncRevealFromUrl);
+    return () => window.removeEventListener("popstate", syncRevealFromUrl);
+  }, []);
+
+  const [uploadedResumeText, setUploadedResumeTextState] = useState(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      return localStorage.getItem(RESUME_TEXT_STORAGE_KEY) ?? "";
+    } catch {
+      return "";
+    }
+  });
+
+  const commitResumeText = useCallback((text: string) => {
+    setUploadedResumeTextState(text);
+    if (typeof window === "undefined") return;
+    try {
+      if (text.trim()) {
+        localStorage.setItem(RESUME_TEXT_STORAGE_KEY, text);
+      } else {
+        localStorage.removeItem(RESUME_TEXT_STORAGE_KEY);
+      }
+    } catch {
+      /* ignore quota / private mode */
+    }
+  }, []);
+
+  const [isSubmittingForm, setIsSubmittingForm] = useState(false);
+  const [formSubmitError, setFormSubmitError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const id = localStorage.getItem(SUBMISSION_STORAGE_KEY);
+    if (id) setOnboardingSubmissionId(id);
+  }, []);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (!firebaseUser) {
+        clearAuth();
+        return;
+      }
+      try {
+        const idToken = await firebaseUser.getIdToken();
+        const response = await fetch("/api/auth/sync", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${idToken}`,
+          },
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        setAuth(data.user, idToken);
+
+        if (typeof window === "undefined") return;
+
+        let lockedFromServer = false;
+        try {
+          const od = await fetch("/api/onboarding/details", {
+            headers: { Authorization: `Bearer ${idToken}` },
+          });
+          if (od.ok) {
+            const jd = (await od.json()) as {
+              submission?: {
+                id?: string;
+                inputStatus?: string;
+                uploadedResumeText?: string | null;
+              } | null;
+            };
+            const st = jd.submission?.inputStatus;
+            if (isInputSavedInDb(st)) {
+              lockedFromServer = true;
+              setInputsCompleteLocked(true);
+              setReturningUserRevealOnly(true);
+              localStorage.setItem(INPUT_LOCKED_STORAGE_KEY, "1");
+              if (jd.submission?.id) {
+                setOnboardingSubmissionId(jd.submission.id);
+                localStorage.setItem(SUBMISSION_STORAGE_KEY, jd.submission.id);
+              }
+              if (jd.submission?.uploadedResumeText != null) {
+                commitResumeText(jd.submission.uploadedResumeText ?? "");
+              }
+              localStorage.setItem(FORM_SUBMITTED_KEY, "1");
+              setStep("resumeRevamp");
+              setResumeRevampRevealRoute(true);
+              window.history.replaceState(null, "", "/resume-revamp-reveal");
+            }
+          }
+        } catch (e) {
+          console.error(e);
+        }
+
+        if (lockedFromServer) return;
+
+        const formDone = localStorage.getItem(FORM_SUBMITTED_KEY) === "1";
+        const path = window.location.pathname;
+        const entryPaths = [
+          "/",
+          "/get-started",
+          "/onboarding-form",
+          "/upload-resume",
+        ];
+        if (formDone && entryPaths.includes(path)) {
+          setStep("resumeRevamp");
+          window.history.replaceState(null, "", "/resume-revamp");
+        } else if (
+          !formDone &&
+          (path === "/" || path === "/get-started")
+        ) {
+          setStep("basics");
+          window.history.replaceState(null, "", "/onboarding-form");
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    });
+    return () => unsub();
+  }, [clearAuth, setAuth, commitResumeText, setStep]);
 
   const fireSideCanons = () => {
     const fire = confettiRef.current?.fire;
@@ -809,6 +998,113 @@ export function OnboardingFlow() {
         origin: { x: 1, y: 1 },
         angle: 120,
       });
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch {
+      /* ignore */
+    }
+    clearAuth();
+    setOnboardingSubmissionId(null);
+    commitResumeText("");
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(SUBMISSION_STORAGE_KEY);
+      localStorage.removeItem(FORM_SUBMITTED_KEY);
+      localStorage.removeItem(INPUT_LOCKED_STORAGE_KEY);
+    }
+    setInputsCompleteLocked(false);
+    setReturningUserRevealOnly(false);
+    setStep("login");
+  };
+
+  const persistSubmissionId = (id: string) => {
+    setOnboardingSubmissionId(id);
+    localStorage.setItem(SUBMISSION_STORAGE_KEY, id);
+  };
+
+  const handleContinueBasics = () => {
+    if (!canProceedBasics) return;
+    setStep("uploadResume");
+  };
+
+  const handleResumeTextReady = useCallback(
+    (rawText: string) => {
+      commitResumeText(rawText);
+      setStep("workExperience");
+    },
+    [commitResumeText],
+  );
+
+  const submitFormAndOpenRevamp = async () => {
+    if (!canProceedPrefs) return;
+    const u = useAuthStore.getState().user;
+    const token = useAuthStore.getState().token;
+    if (!u?.id || !token) return;
+    setFormSubmitError(null);
+    setIsSubmittingForm(true);
+    try {
+      const basicDetails = {
+        firstName,
+        lastName,
+        phone,
+        location,
+        linkedin,
+      };
+      const workExperience = {
+        company,
+        jobTitle,
+        yearsExp,
+        teamSize,
+        impact,
+        revenueImpact,
+        topStat,
+      };
+      const preferencesTaken = {
+        targetRole,
+        country,
+        seniority,
+        workStyle,
+      };
+      const res = await fetch("/api/onboarding/form-submission", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          submissionId: onboardingSubmissionId ?? undefined,
+          basicDetails,
+          uploadedResumeText: uploadedResumeText || null,
+          workExperience,
+          preferencesTaken,
+          revealResume: false,
+        }),
+      });
+      const data = (await res.json()) as {
+        success?: boolean;
+        message?: string;
+        submission?: { id: string };
+      };
+      if (!res.ok || !data.success || !data.submission?.id) {
+        throw new Error(data.message ?? "Could not save your profile.");
+      }
+      persistSubmissionId(data.submission.id);
+      if (typeof window !== "undefined") {
+        localStorage.setItem(FORM_SUBMITTED_KEY, "1");
+        localStorage.setItem(INPUT_LOCKED_STORAGE_KEY, "1");
+      }
+      setInputsCompleteLocked(true);
+      setStep("resumeRevamp");
+    } catch (e) {
+      console.error(e);
+      setFormSubmitError(
+        e instanceof Error ? e.message : "Could not save your profile.",
+      );
+    } finally {
+      setIsSubmittingForm(false);
     }
   };
 
@@ -841,8 +1137,7 @@ export function OnboardingFlow() {
       // 3. Store the Drizzle User in Global State
       setAuth(data.user, idToken);
 
-      // 4. Move to the next UI step
-      setStep("basics");
+      // 4. Next step: onAuthStateChanged also routes basics vs resume-revamp
     } catch (err: any) {
       console.error("Login error:", err);
       // Handle closed popups gracefully
@@ -865,9 +1160,13 @@ export function OnboardingFlow() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (step === "resumeRevamp") {
+      // ResumeRevampStep sets `/resume-revamp` vs `/resume-revamp-reveal` — do not overwrite.
+      return;
+    }
     let targetPath = "/get-started";
-    if (step === "resumeRevamp") targetPath = "/resume-revamp";
-    else if (step === "submitted") targetPath = "/almost-ready";
+    if (step === "submitted") targetPath = "/almost-ready";
+    else if (step === "uploadResume") targetPath = "/upload-resume";
     else if (
       step === "basics" ||
       step === "workExperience" ||
@@ -881,13 +1180,34 @@ export function OnboardingFlow() {
   }, [step]);
 
   const handleFinalSubmit = () => {
-    setModalStatus("loading");
-    const totalDuration = submittingSteps.length * TEXT_LOOP_INTERVAL * 1000;
-    setTimeout(() => {
-      fireSideCanons();
-      setModalStatus("closed");
-      setStep("submitted");
-    }, totalDuration);
+    void (async () => {
+      const id = onboardingSubmissionId;
+      const token = useAuthStore.getState().token;
+      if (id && token) {
+        try {
+          await fetch(
+            `/api/onboarding/submissions/${encodeURIComponent(id)}`,
+            {
+              method: "PATCH",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ inputStatus: "completed" }),
+            },
+          );
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      setModalStatus("loading");
+      const totalDuration = submittingSteps.length * TEXT_LOOP_INTERVAL * 1000;
+      setTimeout(() => {
+        fireSideCanons();
+        setModalStatus("closed");
+        setStep("submitted");
+      }, totalDuration);
+    })();
   };
 
   const Modal = () => (
@@ -935,11 +1255,13 @@ export function OnboardingFlow() {
 
   const STEP_META: { id: OnboardingStep; label: string }[] = [
     { id: "login", label: "Login" },
-    { id: "basics", label: "Profile" },
+    { id: "basics", label: "Basic Details" },
+    { id: "uploadResume", label: "Upload resume" },
     { id: "workExperience", label: "Experience" },
     { id: "jobPreferences", label: "Preferences" },
     { id: "resumeRevamp", label: "Revamp" },
   ];
+  const STEPPER_STEPS = STEP_META.filter((s) => s.id !== "login");
 
   return (
     <div className="bg-background h-screen w-screen flex flex-col overflow-hidden">
@@ -957,19 +1279,40 @@ export function OnboardingFlow() {
         <h1 className="text-base font-bold text-foreground">mentorque</h1>
       </div>
 
+      {user && (
+        <div className="fixed top-4 right-4 z-30 flex max-w-[min(22rem,calc(100vw-2rem))] flex-col items-end gap-1 rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-right text-xs backdrop-blur-md">
+          <span className="font-medium text-foreground">
+            {user.name ?? user.fullName ?? user.email ?? "Signed in"}
+          </span>
+          <span className="font-mono text-[10px] text-muted-foreground">
+            ID: {user.mentorqueUserId ?? user.id}
+          </span>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="mt-1 inline-flex items-center gap-1 rounded-lg border border-white/15 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-foreground/90 hover:bg-white/10"
+          >
+            <LogOut className="h-3 w-3" />
+            Log out
+          </button>
+        </div>
+      )}
+
       <div className="fixed top-3 left-1/2 -translate-x-1/2 z-20">
         <AnimatePresence>
+          {step !== "login" &&
+            !(step === "resumeRevamp" && resumeRevampRevealRoute) && (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease: "easeOut", delay: 0.2 }}
             className="stepper-bar"
           >
-            {STEP_META.map((s, i) => {
+            {STEPPER_STEPS.map((s, i) => {
               const stepIdx = STEPS.indexOf(s.id);
               const isActive =
                 step === s.id ||
-                (step === "submitted" && i === STEP_META.length - 1);
+                (step === "submitted" && s.id === "resumeRevamp");
               const isDone = currentStepIndex > stepIdx;
               return (
                 <React.Fragment key={s.id}>
@@ -1007,6 +1350,7 @@ export function OnboardingFlow() {
               );
             })}
           </motion.div>
+          )}
         </AnimatePresence>
       </div>
 
@@ -1035,12 +1379,12 @@ export function OnboardingFlow() {
               className={cn(STEP_OUTER, "gap-8")}
             >
               <div className="w-full flex flex-col items-center gap-4 text-center mt-12">
-                <BlurFade delay={0.1} className="w-full">
+                <BlurFade inView={false} delay={0.1} className="w-full">
                   <p className="font-serif font-light text-4xl sm:text-5xl tracking-tight text-foreground whitespace-nowrap">
                     Land your dream job
                   </p>
                 </BlurFade>
-                <BlurFade delay={0.2}>
+                <BlurFade inView={false} delay={0.2}>
                   <p className="text-sm font-medium text-muted-foreground">
                     We craft the resume that gets you in the room.
                   </p>
@@ -1048,7 +1392,7 @@ export function OnboardingFlow() {
               </div>
 
               <div className="w-full max-w-xs mt-10 space-y-4">
-                <BlurFade delay={0.3} className="w-full">
+                <BlurFade inView={false} delay={0.3} className="w-full">
                   <button
                     type="button"
                     onClick={handleGoogleLogin}
@@ -1116,21 +1460,21 @@ export function OnboardingFlow() {
               className={cn(STEP_OUTER, "gap-8")}
             >
               <div className="w-full flex flex-col items-center gap-3">
-                <BlurFade delay={0.05} className="w-full">
+                <BlurFade inView={false} delay={0.05} className="w-full">
                   <p className="font-serif font-light text-4xl sm:text-5xl tracking-tight text-foreground text-center">
-                    Tell us about you
+                    Basic details
                   </p>
                 </BlurFade>
-                <BlurFade delay={0.1}>
+                <BlurFade inView={false} delay={0.1}>
                   <p className="text-sm font-medium text-muted-foreground text-center">
-                    Basic info so we can personalize your experience
+                    Tell us about you so we can personalize your experience
                   </p>
                 </BlurFade>
               </div>
 
               <div className="w-full rounded-[2rem] border border-blue-400/20 bg-blue-950/20 backdrop-blur-xl shadow-[0_8px_30px_rgba(0,0,0,0.35)] p-6 sm:p-8 job-pref-card">
                 <div className="w-full space-y-8">
-                <BlurFade delay={0.15} className="w-full">
+                <BlurFade inView={false} delay={0.15} className="w-full">
                   <div className="flex gap-3">
                     <GlassInput
                       icon={<User className="h-5 w-5 text-foreground/80" />}
@@ -1150,7 +1494,7 @@ export function OnboardingFlow() {
                   </div>
                 </BlurFade>
 
-                <BlurFade delay={0.2} className="w-full">
+                <BlurFade inView={false} delay={0.2} className="w-full">
                   <GlassInput
                     icon={<MapPin className="h-5 w-5 text-foreground/80" />}
                     placeholder="City, Country"
@@ -1161,7 +1505,7 @@ export function OnboardingFlow() {
                   />
                 </BlurFade>
 
-                <BlurFade delay={0.25} className="w-full">
+                <BlurFade inView={false} delay={0.25} className="w-full">
                   <GlassInput
                     icon={
                       <svg
@@ -1180,11 +1524,11 @@ export function OnboardingFlow() {
                   />
                 </BlurFade>
 
-                <BlurFade delay={0.3} className="w-full">
+                <BlurFade inView={false} delay={0.3} className="w-full">
                   <div className="flex justify-end">
                     <GlassButton
                       type="button"
-                      onClick={() => setStep("workExperience")}
+                      onClick={() => void handleContinueBasics()}
                       disabled={!canProceedBasics}
                       contentClassName="flex items-center gap-2"
                       className={cn(
@@ -1203,6 +1547,35 @@ export function OnboardingFlow() {
             </motion.div>
           )}
 
+          {step === "uploadResume" && (
+            <motion.div
+              key="uploadResume"
+              initial={{ y: 10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -10, opacity: 0 }}
+              transition={{ duration: 0.35, ease: "easeOut" }}
+              className={cn(
+                STEP_OUTER,
+                "gap-8 max-h-screen overflow-y-auto py-16 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']",
+              )}
+            >
+              <div className="w-full flex flex-col items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setStep("basics")}
+                  className="self-start flex items-center gap-2 text-sm text-foreground/70 hover:text-foreground transition-colors mb-2"
+                >
+                  <ArrowLeft className="w-4 h-4" /> Back
+                </button>
+              </div>
+              <ResumeTextOnlyPanel
+                onReady={handleResumeTextReady}
+                apiBaseUrl=""
+              />
+            
+            </motion.div>
+          )}
+
           {step === "workExperience" && (
             <motion.div
               key="workExperience"
@@ -1216,21 +1589,44 @@ export function OnboardingFlow() {
               )}
             >
               <div className="w-full flex flex-col items-center gap-3">
-                <BlurFade delay={0.05} className="w-full">
+                <BlurFade inView={false} delay={0.05} className="w-full">
                   <p className="font-serif font-light text-4xl sm:text-5xl tracking-tight text-foreground text-center">
                     Your work story
                   </p>
                 </BlurFade>
-                <BlurFade delay={0.1}>
-                  <p className="text-sm font-medium text-muted-foreground text-center">
-                    The details that make your resume stand out
+                <BlurFade inView={false} delay={0.1}>
+                  <p className="text-sm font-medium text-muted-foreground text-center max-w-lg mx-auto">
+                    Add your current role and impact below. Your uploaded resume text is kept
+                    in memory and shown here for reference.
                   </p>
                 </BlurFade>
               </div>
 
               <div className="w-full rounded-[2rem] border border-blue-400/20 bg-blue-950/20 backdrop-blur-xl shadow-[0_8px_30px_rgba(0,0,0,0.35)] p-6 sm:p-8 job-pref-card">
                 <div className="w-full space-y-8">
-                <BlurFade delay={0.12} className="w-full">
+                {uploadedResumeText.trim().length > 0 ? (
+                  <BlurFade inView={false} delay={0.08} className="w-full">
+                    <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/25 p-4 space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-emerald-300/95">
+                        Stored resume text ({uploadedResumeText.length.toLocaleString()}{" "}
+                        characters)
+                      </p>
+                      <div className="max-h-56 overflow-y-auto rounded-xl bg-black/30 px-3 py-2 text-left">
+                        <pre className="text-[11px] leading-relaxed text-foreground/85 whitespace-pre-wrap font-mono">
+                          {uploadedResumeText}
+                        </pre>
+                      </div>
+                    </div>
+                  </BlurFade>
+                ) : (
+                  <BlurFade inView={false} delay={0.08} className="w-full">
+                    <p className="text-xs text-center text-amber-400/90 rounded-xl border border-amber-500/25 bg-amber-950/20 px-4 py-3">
+                      No resume text in state yet — go back to Upload resume or paste text
+                      there first.
+                    </p>
+                  </BlurFade>
+                )}
+                <BlurFade inView={false} delay={0.12} className="w-full">
                   <GlassInput
                     icon={<Building2 className="h-5 w-5 text-foreground/80" />}
                     placeholder="Current / most recent company"
@@ -1241,7 +1637,7 @@ export function OnboardingFlow() {
                   />
                 </BlurFade>
 
-                <BlurFade delay={0.16} className="w-full">
+                <BlurFade inView={false} delay={0.16} className="w-full">
                   <GlassInput
                     icon={<Briefcase className="h-5 w-5 text-foreground/80" />}
                     placeholder="Your job title"
@@ -1252,7 +1648,7 @@ export function OnboardingFlow() {
                   />
                 </BlurFade>
 
-                <BlurFade delay={0.2} className="w-full">
+                <BlurFade inView={false} delay={0.2} className="w-full">
                   <div className="flex gap-3">
                     <GlassSelect
                       icon={
@@ -1289,7 +1685,7 @@ export function OnboardingFlow() {
                   </div>
                 </BlurFade>
 
-                <BlurFade delay={0.24} className="w-full">
+                <BlurFade inView={false} delay={0.24} className="w-full">
                   <div className="relative w-full">
                     {impact.length > 0 && (
                       <label className="absolute -top-6 left-4 z-10 text-xs text-muted-foreground font-semibold">
@@ -1313,7 +1709,7 @@ export function OnboardingFlow() {
                   </div>
                 </BlurFade>
 
-                <BlurFade delay={0.28} className="w-full">
+                <BlurFade inView={false} delay={0.28} className="w-full">
                   <GlassInput
                     icon={<TrendingUp className="h-5 w-5 text-foreground/80" />}
                     placeholder="Revenue / cost impact (e.g. $2M ARR)"
@@ -1324,7 +1720,7 @@ export function OnboardingFlow() {
                   />
                 </BlurFade>
 
-                <BlurFade delay={0.32} className="w-full">
+                <BlurFade inView={false} delay={0.32} className="w-full">
                   <GlassInput
                     icon={<TrendingUp className="h-5 w-5 text-foreground/80" />}
                     placeholder="Your proudest metric (e.g. 99.9% uptime)"
@@ -1335,11 +1731,11 @@ export function OnboardingFlow() {
                   />
                 </BlurFade>
 
-                <BlurFade delay={0.36} className="w-full">
+                <BlurFade inView={false} delay={0.36} className="w-full">
                   <div className="flex justify-between items-center">
                     <button
                       type="button"
-                      onClick={() => setStep("basics")}
+                      onClick={() => setStep("uploadResume")}
                       className="flex items-center gap-2 text-sm text-foreground/70 hover:text-foreground transition-colors"
                     >
                       <ArrowLeft className="w-4 h-4" /> Go back
@@ -1376,12 +1772,12 @@ export function OnboardingFlow() {
               )}
             >
               <div className="w-full flex flex-col items-center gap-3">
-                <BlurFade delay={0.05} className="w-full">
+                <BlurFade inView={false} delay={0.05} className="w-full">
                   <p className="font-serif font-light text-4xl sm:text-5xl tracking-tight text-foreground text-center">
                     Where are you headed?
                   </p>
                 </BlurFade>
-                <BlurFade delay={0.1}>
+                <BlurFade inView={false} delay={0.1}>
                   <p className="text-sm font-medium text-muted-foreground text-center">
                     We tailor your resume for your target role
                   </p>
@@ -1390,7 +1786,7 @@ export function OnboardingFlow() {
 
               <div className="w-full rounded-[2rem] border border-blue-400/20 bg-blue-950/20 backdrop-blur-xl shadow-[0_8px_30px_rgba(0,0,0,0.35)] p-6 sm:p-8 job-pref-card">
                 <div className="w-full space-y-8">
-                <BlurFade delay={0.15} className="w-full">
+                <BlurFade inView={false} delay={0.15} className="w-full">
                   <GlassInput
                     icon={<Target className="h-5 w-5 text-foreground/80" />}
                     placeholder="Target role (e.g. Staff Engineer)"
@@ -1401,7 +1797,7 @@ export function OnboardingFlow() {
                   />
                 </BlurFade>
 
-                <BlurFade delay={0.2} className="w-full">
+                <BlurFade inView={false} delay={0.2} className="w-full">
                   <GlassInput
                     icon={<Globe className="h-5 w-5 text-foreground/80" />}
                     placeholder="Target country (e.g. United States)"
@@ -1412,7 +1808,7 @@ export function OnboardingFlow() {
                   />
                 </BlurFade>
 
-                <BlurFade delay={0.25} className="w-full">
+                <BlurFade inView={false} delay={0.25} className="w-full">
                   <GlassSelect
                     icon={<TrendingUp className="h-5 w-5 text-foreground/80" />}
                     placeholder="Seniority level"
@@ -1431,7 +1827,7 @@ export function OnboardingFlow() {
                   />
                 </BlurFade>
 
-                <BlurFade delay={0.3} className="w-full">
+                <BlurFade inView={false} delay={0.3} className="w-full">
                   <div className="flex gap-3">
                     {["Remote", "Hybrid", "On-site"].map((opt) => (
                       <button
@@ -1463,7 +1859,12 @@ export function OnboardingFlow() {
                   </div>
                 </BlurFade>
 
-                <BlurFade delay={0.35} className="w-full">
+                <BlurFade inView={false} delay={0.35} className="w-full">
+                  {formSubmitError && (
+                    <p className="text-sm text-red-400 text-center mb-3">
+                      {formSubmitError}
+                    </p>
+                  )}
                   <div className="flex justify-between items-center">
                     <button
                       type="button"
@@ -1474,15 +1875,23 @@ export function OnboardingFlow() {
                     </button>
                     <GlassButton
                       type="button"
-                      onClick={() => setStep("resumeRevamp")}
-                      disabled={!canProceedPrefs}
+                      onClick={() => void submitFormAndOpenRevamp()}
+                      disabled={!canProceedPrefs || isSubmittingForm}
                       contentClassName="flex items-center gap-2"
                       className={cn(
                         "transition-opacity",
-                        !canProceedPrefs && "opacity-40",
+                        (!canProceedPrefs || isSubmittingForm) && "opacity-40",
                       )}
                     >
-                      Continue <ArrowRight className="w-4 h-4" />
+                      {isSubmittingForm ? (
+                        <>
+                          <Loader className="w-4 h-4 animate-spin" /> Saving…
+                        </>
+                      ) : (
+                        <>
+                          Continue <ArrowRight className="w-4 h-4" />
+                        </>
+                      )}
                     </GlassButton>
                   </div>
                 </BlurFade>
@@ -1509,6 +1918,12 @@ export function OnboardingFlow() {
                   handleFinalSubmit();
                 }}
                 apiBaseUrl=""
+                initialParseResult={null}
+                initialRawResumeText={uploadedResumeText || null}
+                onboardingSubmissionId={onboardingSubmissionId}
+                authToken={authToken}
+                onRevealPathChange={setResumeRevampRevealRoute}
+                skipEarlierRevampStages={returningUserRevealOnly}
               />
             </motion.div>
           )}

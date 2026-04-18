@@ -6,6 +6,7 @@ type Row = {
   userId: string;
   userName: string;
   revealResume: boolean;
+  inputStatus: string;
   wildcardLinks: { resumeRevamp: string };
 };
 
@@ -98,6 +99,7 @@ export function AdminOnboardingPanel(props: RouteComponentProps<{ token: string 
                 <th className="px-4 py-3 font-medium">Onboarding ID</th>
                 <th className="px-4 py-3 font-medium">User name</th>
                 <th className="px-4 py-3 font-medium">Reveal</th>
+                <th className="px-4 py-3 font-medium">Input status</th>
                 <th className="px-4 py-3 font-medium">Resume revamp</th>
                 <th className="px-4 py-3 font-medium min-w-[200px]">Wildcard name</th>
                 <th className="px-4 py-3 font-medium">Role</th>
@@ -107,7 +109,7 @@ export function AdminOnboardingPanel(props: RouteComponentProps<{ token: string 
             <tbody>
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-zinc-500">
+                  <td colSpan={8} className="px-4 py-8 text-center text-zinc-500">
                     No onboarding submissions yet.
                   </td>
                 </tr>
@@ -128,6 +130,9 @@ export function AdminOnboardingPanel(props: RouteComponentProps<{ token: string 
                       >
                         {it.revealResume ? "yes" : "no"}
                       </span>
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs text-zinc-400">
+                      {it.inputStatus}
                     </td>
                     <td className="px-4 py-3">
                       <a

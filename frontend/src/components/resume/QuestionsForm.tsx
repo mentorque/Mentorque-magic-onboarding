@@ -2,7 +2,7 @@
  * QuestionsForm.tsx
  * Location: artifacts/mentorque-onboarding/src/components/resume/QuestionsForm.tsx
  *
- * Sub-stage 2 of the Resume Revamp step.
+ * Sub-stage 2 of the resume revamp step.
  * Shows the AI-generated questions one by one with navigation.
  */
 
@@ -17,11 +17,24 @@ import type { RevampQuestion } from '../../lib/resumeRevampTypes';
 interface QuestionsFormProps {
   questions: RevampQuestion[];
   parsedResume: any;
-  onRevamped: (result: { revampedResume: any; changes: any[]; compiledPdfUrl: string | null }) => void;
+  onRevamped: (
+    result: { revampedResume: any; changes: any[]; compiledPdfUrl: string | null },
+  ) => void | Promise<void>;
   apiBaseUrl?: string;
+  /** Fires synchronously when the user submits — use for full-screen loading + `/resume-revamp-reveal`. */
+  onRevampFlowStart?: () => void;
+  /** Fires when the revamp request finishes (success or error). */
+  onRevampFlowEnd?: () => void;
 }
 
-export function QuestionsForm({ questions, parsedResume, onRevamped, apiBaseUrl = '' }: QuestionsFormProps) {
+export function QuestionsForm({
+  questions,
+  parsedResume,
+  onRevamped,
+  apiBaseUrl = '',
+  onRevampFlowStart,
+  onRevampFlowEnd,
+}: QuestionsFormProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
@@ -50,6 +63,7 @@ export function QuestionsForm({ questions, parsedResume, onRevamped, apiBaseUrl 
   };
 
   const handleSubmit = async () => {
+    onRevampFlowStart?.();
     setError(null);
     setLoading(true);
     try {
@@ -69,11 +83,12 @@ export function QuestionsForm({ questions, parsedResume, onRevamped, apiBaseUrl 
         changes: any[];
         compiledPdfUrl: string | null;
       };
-      onRevamped(data);
+      await Promise.resolve(onRevamped(data));
     } catch (err: any) {
       setError(err.message || 'Something went wrong.');
     } finally {
       setLoading(false);
+      onRevampFlowEnd?.();
     }
   };
 
@@ -107,7 +122,7 @@ export function QuestionsForm({ questions, parsedResume, onRevamped, apiBaseUrl 
         </BlurFade>
         <BlurFade delay={0.2} className="w-full">
           <p className="text-sm font-medium text-muted-foreground text-center max-w-lg mx-auto">
-            These are based on your resume. Answer what you can — more detail = better revamp.
+            These are based on your resume. Answer what you can — more detail = a stronger AI Intel pass.
           </p>
         </BlurFade>
       </div>

@@ -91,16 +91,60 @@ function sanitizeForCompiler(resume: any): any {
 }
 
 // Multer: memory storage, 10 MB file limit
+function looksLikePdf(file: { originalname?: string; mimetype?: string }): boolean {
+  const name = (file.originalname || '').toLowerCase();
+  if (name.endsWith('.pdf')) return true;
+  const m = (file.mimetype || '').toLowerCase();
+  return (
+    m === 'application/pdf' ||
+    m === 'application/x-pdf' ||
+    m === 'binary/octet-stream' ||
+    m === 'application/octet-stream'
+  );
+}
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    if (file.mimetype === 'application/pdf') {
+    if (looksLikePdf(file)) {
       cb(null, true);
     } else {
       cb(new Error('Only PDF files are accepted'));
     }
   },
+});
+
+// ─── POST /extract-text ───────────────────────────────────────────────────────
+// PDF or plain text only — no AI. Use for onboarding "collect text" step.
+// Returns: { rawText: string }
+router.post('/extract-text', upload.single('file'), async (req: Request, res: Response) => {
+  try {
+    let resumeText = '';
+
+    if (req.file) {
+      resumeText = await parsePdfToText(req.file.buffer);
+    } else if (req.body?.text && typeof req.body.text === 'string') {
+      resumeText = req.body.text.trim();
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Provide either a PDF file (multipart "file" field) or plain text (JSON "text" field).',
+      });
+    }
+
+    if (!resumeText) {
+      return res.status(422).json({
+        success: false,
+        message: 'Could not extract any text from the provided input.',
+      });
+    }
+
+    return res.json({ success: true, rawText: resumeText });
+  } catch (err: any) {
+    console.error('[resume-revamp/extract-text] Error:', err);
+    return res.status(500).json({ success: false, message: err.message || 'Failed to read resume text.' });
+  }
 });
 
 // ─── POST /parse ──────────────────────────────────────────────────────────────
