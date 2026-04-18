@@ -1,0 +1,11 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "services": [
+    {
+      "name": "api-server",
+      "source": {
+        "repo": "."
+      }
+    }
+  ]
+}

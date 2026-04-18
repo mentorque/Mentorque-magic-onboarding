@@ -1,16 +1,14 @@
 [build]
-builder = "nixpacks"
-buildCommand = "pnpm --filter @workspace/api-server run build"
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
 watchPatterns = [
   "backend/**",
   "lib/**",
   "package.json",
   "pnpm-lock.yaml",
   "pnpm-workspace.yaml",
+  "Dockerfile",
 ]
-
-[build.nixpacksPlan.phases.install]
-cmds = ["pnpm install --no-frozen-lockfile"]
 
 [deploy]
 startCommand = "pnpm --filter @workspace/api-server run start"
