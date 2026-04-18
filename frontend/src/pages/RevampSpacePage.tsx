@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useAuthStore } from "@/store/useAuthStore";
+import { GradientBackground } from "@/components/GradientBackground";
 import { API_BASE_URL, withApiBase } from "@/lib/apiBaseUrl";
 import { ComparisonView } from "@/components/resume/ComparisonView";
 import type { RevampResult } from "@/lib/resumeRevampTypes";
@@ -14,6 +15,20 @@ type RevampSpaceAnnotation = {
   onboardingId: string;
   reviewerId: string | null;
 };
+
+/** Matches `OnboardingFlow` main pane: `bg-card` + `GradientBackground` behind content. */
+function RevampSpaceShell({ children }: { children: ReactNode }) {
+  return (
+    <div className="bg-background text-foreground flex h-screen w-screen flex-col overflow-hidden">
+      <div className="relative flex min-h-0 w-full flex-1 items-stretch justify-start overflow-hidden bg-card">
+        <div className="absolute inset-0 z-0">
+          <GradientBackground />
+        </div>
+        <div className="relative z-10 flex min-h-0 w-full flex-1 flex-col">{children}</div>
+      </div>
+    </div>
+  );
+}
 
 export function RevampSpacePage() {
   const firebaseToken = useAuthStore((s) => s.token);
@@ -117,53 +132,61 @@ export function RevampSpacePage() {
 
   if (phase === "loading") {
     return (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-zinc-950 text-zinc-200">
-        <p className="text-sm text-zinc-400">Loading…</p>
-      </div>
+      <RevampSpaceShell>
+        <div className="flex flex-1 flex-col items-center justify-center px-6">
+          <p className="text-sm font-medium text-muted-foreground">Loading…</p>
+        </div>
+      </RevampSpaceShell>
     );
   }
 
   if (phase === "auth") {
     return (
-      <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-4 bg-zinc-950 px-6 text-center text-zinc-200">
-        <p className="text-sm text-zinc-400">Sign in or open a valid access link to continue.</p>
-        <button
-          type="button"
-          className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500"
-          onClick={() => {
-            window.location.href = "/";
-          }}
-        >
-          Go to home
-        </button>
-      </div>
+      <RevampSpaceShell>
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
+          <p className="text-sm text-muted-foreground">
+            Sign in or open a valid access link to continue.
+          </p>
+          <button
+            type="button"
+            className="rounded-lg border border-primary/30 bg-primary/10 px-4 py-2 text-sm font-medium text-foreground hover:bg-primary/15"
+            onClick={() => {
+              window.location.href = "/";
+            }}
+          >
+            Go to home
+          </button>
+        </div>
+      </RevampSpaceShell>
     );
   }
 
   if (phase === "denied" || !revampResult || parsedResume == null) {
     return (
-      <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-2 bg-zinc-950 px-6 text-center text-zinc-200">
-        <p className="text-sm font-medium text-zinc-300">Revamp space unavailable</p>
-        <p className="max-w-md text-xs text-zinc-500">
-          For owners: your revamped resume must be revealed and your profile complete. For reviewers:
-          use the link from the admin panel.
-        </p>
-        <button
-          type="button"
-          className="mt-2 text-xs text-sky-400 hover:underline"
-          onClick={() => {
-            window.location.href = "/";
-          }}
-        >
-          Back to home
-        </button>
-      </div>
+      <RevampSpaceShell>
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
+          <p className="text-sm font-medium text-foreground">Revamp space unavailable</p>
+          <p className="max-w-md text-xs text-muted-foreground">
+            For owners: your revamped resume must be revealed and your profile complete. For reviewers:
+            use the link from the admin panel.
+          </p>
+          <button
+            type="button"
+            className="mt-2 text-sm text-primary hover:underline"
+            onClick={() => {
+              window.location.href = "/";
+            }}
+          >
+            Back to home
+          </button>
+        </div>
+      </RevampSpaceShell>
     );
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col bg-background">
-      <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col">
+    <RevampSpaceShell>
+      <div className="relative mx-auto flex h-full min-h-0 w-full max-w-[1600px] flex-1 flex-col overflow-hidden px-6 pb-2 pt-4">
         <ComparisonView
           originalResume={parsedResume}
           revampedResume={revampResult.revampedResume}
@@ -173,6 +196,6 @@ export function RevampSpacePage() {
           annotation={pdfAnnotation}
         />
       </div>
-    </div>
+    </RevampSpaceShell>
   );
 }

@@ -684,6 +684,37 @@ router.get("/admin/:token/list", async (req: Request, res: Response) => {
   }
 });
 
+/** Admin: toggle `reveal_resume` for a submission (yes ↔ no). */
+router.patch("/admin/:token/submissions/:submissionId/reveal", async (req: Request, res: Response) => {
+  const token = req.params.token as string;
+  const submissionId = req.params.submissionId as string;
+  const { revealResume } = req.body ?? {};
+
+  if (token !== ADMIN_ACCESS_TOKEN) {
+    return res.status(403).json({ success: false, message: "Invalid admin token." });
+  }
+  if (typeof revealResume !== "boolean") {
+    return res
+      .status(400)
+      .json({ success: false, message: "revealResume (boolean) is required." });
+  }
+
+  try {
+    const [submission] = await db
+      .update(onboardingSubmissionsTable)
+      .set({ revealResume, updatedAt: new Date() } as any)
+      .where(eq(onboardingSubmissionsTable.id, submissionId))
+      .returning();
+
+    if (!submission) {
+      return res.status(404).json({ success: false, message: "Submission not found." });
+    }
+    return res.json({ success: true, submission, revealResume: submission.revealResume });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 router.post("/admin/:token/mentor-links", async (req: Request, res: Response) => {
   const token = req.params.token as string;
   const { onboardingId, name, role } = req.body ?? {};

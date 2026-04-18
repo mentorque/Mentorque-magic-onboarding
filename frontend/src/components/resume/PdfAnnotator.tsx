@@ -471,7 +471,6 @@ export function PdfAnnotator({
     const update = () => {
       const parent = outerRef.current?.parentElement;
       if (!parent) return;
-      // Use full parent width minus a small padding; no upper cap so PDF uses all space
       const w = parent.clientWidth - 16;
       setContainerWidth(Math.max(w, 300));
     };
