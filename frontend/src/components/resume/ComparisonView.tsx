@@ -13,7 +13,7 @@
  *   4. Reference Resumes (placeholder)
  *   5. Metrics (readability, keyword density, stats)
  */
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronRight,
@@ -27,6 +27,8 @@ import {
   Info,
   Lightbulb,
   Eye,
+  Reply,
+  LocateFixed,
 } from "lucide-react";
 import {
   SiGoogle,
@@ -1086,75 +1088,105 @@ export function ComparisonView({
 }: ComparisonViewProps) {
   const [activeTab, setActiveTab] = useState<"analysis" | "studio">("analysis");
   const [studioThreads, setStudioThreads] = useState<StudioThreadItem[]>([]);
+  const [studioReplyOpenKey, setStudioReplyOpenKey] = useState<string | null>(
+    null,
+  );
+  const [studioReplyDraft, setStudioReplyDraft] = useState("");
+  const [studioReplyPosting, setStudioReplyPosting] = useState(false);
   const [focusHighlightId, setFocusHighlightId] = useState<string | null>(null);
   const [focusSignal, setFocusSignal] = useState(0);
   const [insightFocusText, setInsightFocusText] = useState<string | null>(null);
   const documentId = compiledPdfUrl ?? "resume-draft";
 
-  useEffect(() => {
-    let disposed = false;
+  const loadStudioThreads = useCallback(async () => {
+    try {
+      const res = await fetch(
+        withApiBase(`/api/highlights?documentUrl=${encodeURIComponent(documentId)}`),
+      );
+      const data = await res.json();
+      if (!data?.success || !Array.isArray(data.highlights)) return;
 
-    const fetchStudioComments = async () => {
-      try {
-        const res = await fetch(
-          withApiBase(`/api/highlights?documentUrl=${encodeURIComponent(documentId)}`),
-        );
-        const data = await res.json();
-        if (!data?.success || !Array.isArray(data.highlights)) return;
-
-        const threads: StudioThreadItem[] = data.highlights.flatMap(
-          (h: any) => {
-            const selectedText =
-              typeof h?.content?.text === "string"
-                ? h.content.text
-                : undefined;
-            const comments = normalizeCommentsForHighlight(h.id, h?.comments);
-            const roots = rootComments(comments);
-            return roots.map((root) => ({
-              highlightId: String(h.id),
-              selectedText,
-              root: {
-                id: root.id!,
-                type: root.type,
-                text: root.text,
-                createdAt: root.createdAt,
-                authorLabel: commentAuthorLabel(root),
-              },
-              replies: repliesToParent(comments, root.id!).map((r) => ({
-                id: r.id!,
-                type: r.type,
-                text: r.text,
-                createdAt: r.createdAt,
-                authorLabel: commentAuthorLabel(r),
-              })),
-            }));
+      const threads: StudioThreadItem[] = data.highlights.flatMap((h: any) => {
+        const selectedText =
+          typeof h?.content?.text === "string" ? h.content.text : undefined;
+        const comments = normalizeCommentsForHighlight(h.id, h?.comments);
+        const roots = rootComments(comments);
+        return roots.map((root) => ({
+          highlightId: String(h.id),
+          selectedText,
+          root: {
+            id: root.id!,
+            type: root.type,
+            text: root.text,
+            createdAt: root.createdAt,
+            authorLabel: commentAuthorLabel(root),
           },
+          replies: repliesToParent(comments, root.id!).map((r) => ({
+            id: r.id!,
+            type: r.type,
+            text: r.text,
+            createdAt: r.createdAt,
+            authorLabel: commentAuthorLabel(r),
+          })),
+        }));
+      });
+
+      threads.sort((a, b) => {
+        const ta = Math.max(
+          +new Date(a.root.createdAt),
+          ...a.replies.map((r) => +new Date(r.createdAt)),
         );
-
-        threads.sort((a, b) => {
-          const ta = Math.max(
-            +new Date(a.root.createdAt),
-            ...a.replies.map((r) => +new Date(r.createdAt)),
-          );
-          const tb = Math.max(
-            +new Date(b.root.createdAt),
-            ...b.replies.map((r) => +new Date(r.createdAt)),
-          );
-          return tb - ta;
-        });
-        if (!disposed) setStudioThreads(threads);
-      } catch {
-        // Ignore transient fetch errors; studio tab can still render stale entries.
-      }
-    };
-
-    fetchStudioComments();
-    const interval = setInterval(fetchStudioComments, 5000);
-    return () => {
-      disposed = true;
-      clearInterval(interval);
-    };
+        const tb = Math.max(
+          +new Date(b.root.createdAt),
+          ...b.replies.map((r) => +new Date(r.createdAt)),
+        );
+        return tb - ta;
+      });
+      setStudioThreads(threads);
+    } catch {
+      // Ignore transient fetch errors; studio tab can still render stale entries.
+    }
   }, [documentId]);
+
+  useEffect(() => {
+    loadStudioThreads();
+    const interval = setInterval(loadStudioThreads, 5000);
+    return () => clearInterval(interval);
+  }, [loadStudioThreads]);
+
+  const submitStudioReply = async (thread: StudioThreadItem) => {
+    const text = studioReplyDraft.trim();
+    if (!text) return;
+    setStudioReplyPosting(true);
+    try {
+      const res = await fetch(
+        withApiBase(
+          `/api/highlights/${encodeURIComponent(thread.highlightId)}/comments`,
+        ),
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text,
+            type: "human",
+            inReplyToId: thread.root.id,
+            author: annotation?.displayName,
+            role: annotation?.role,
+          }),
+        },
+      );
+      const data = await res.json();
+      if (data.success) {
+        setStudioReplyDraft("");
+        setStudioReplyOpenKey(null);
+        await loadStudioThreads();
+      }
+    } catch {
+      // keep draft
+    } finally {
+      setStudioReplyPosting(false);
+    }
+  };
 
   return (
     <div className="w-full flex-1 flex flex-col min-h-0">
@@ -1294,67 +1326,140 @@ export function ComparisonView({
                       <span className="text-white/90 font-semibold">Note</span>.
                     </div>
                   ) : (
-                    studioThreads.map((thread) => (
-                      <button
-                        key={`${thread.highlightId}-${thread.root.id}`}
-                        type="button"
-                        onClick={() => {
-                          setFocusHighlightId(thread.highlightId);
-                          setFocusSignal((n) => n + 1);
-                        }}
-                        className="w-full text-left rounded-2xl border border-white/10 bg-white/[0.04] p-4 hover:bg-white/[0.07] hover:border-white/20 transition-all"
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <span
-                            className={cn(
-                              "text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-full border",
-                              thread.root.type === "ai"
-                                ? "text-violet-200 border-violet-300/30 bg-violet-500/10"
-                                : "text-amber-200 border-amber-300/30 bg-amber-500/10",
-                            )}
-                          >
-                            {thread.root.type === "ai"
-                              ? "AI Revamp"
-                              : thread.root.authorLabel || "Note"}
-                          </span>
-                          <span className="text-[10px] text-white/40">
-                            {new Date(thread.root.createdAt).toLocaleString()}
-                          </span>
-                        </div>
-                        {thread.selectedText && (
-                          <p className="text-xs text-white/50 italic border-l-2 border-white/15 pl-3 mb-2 line-clamp-2">
-                            "{thread.selectedText}"
-                          </p>
-                        )}
-                        <p className="text-sm text-white/85 leading-relaxed">
-                          {thread.root.text}
-                        </p>
-                        {thread.replies.length > 0 && (
-                          <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
-                            {thread.replies.map((r) => (
-                              <div
-                                key={r.id}
-                                className="rounded-xl border border-white/5 bg-black/25 pl-3 pr-2 py-2 border-l-2 border-l-cyan-400/40"
-                              >
-                                <div className="flex items-center justify-between gap-2 mb-1">
-                                  <span className="text-[10px] font-black uppercase tracking-widest text-cyan-200/90">
-                                    {r.type === "ai"
-                                      ? "AI"
-                                      : r.authorLabel || "Reply"}
-                                  </span>
-                                  <span className="text-[10px] text-white/35 shrink-0">
-                                    {new Date(r.createdAt).toLocaleString()}
-                                  </span>
-                                </div>
-                                <p className="text-xs text-white/80 leading-relaxed">
-                                  {r.text}
-                                </p>
-                              </div>
-                            ))}
+                    studioThreads.map((thread) => {
+                      const cardKey = `${thread.highlightId}-${thread.root.id}`;
+                      const replyOpen = studioReplyOpenKey === cardKey;
+                      return (
+                        <div
+                          key={cardKey}
+                          className={cn(
+                            "w-full rounded-2xl border bg-white/[0.04] p-4 transition-all",
+                            replyOpen
+                              ? "border-cyan-400/35 ring-1 ring-cyan-400/20 shadow-[0_0_24px_rgba(34,211,238,0.08)]"
+                              : "border-white/10 hover:bg-white/[0.07] hover:border-white/20",
+                          )}
+                        >
+                          <div className="flex items-center justify-between mb-2 gap-2">
+                            <span
+                              className={cn(
+                                "text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-full border",
+                                thread.root.type === "ai"
+                                  ? "text-violet-200 border-violet-300/30 bg-violet-500/10"
+                                  : "text-amber-200 border-amber-300/30 bg-amber-500/10",
+                              )}
+                            >
+                              {thread.root.type === "ai"
+                                ? "AI Revamp"
+                                : thread.root.authorLabel || "Note"}
+                            </span>
+                            <span className="text-[10px] text-white/40 shrink-0">
+                              {new Date(thread.root.createdAt).toLocaleString()}
+                            </span>
                           </div>
-                        )}
-                      </button>
-                    ))
+                          {thread.selectedText && (
+                            <p className="text-xs text-white/50 italic border-l-2 border-white/15 pl-3 mb-2 line-clamp-2">
+                              "{thread.selectedText}"
+                            </p>
+                          )}
+                          <p className="text-sm text-white/85 leading-relaxed">
+                            {thread.root.text}
+                          </p>
+                          {thread.replies.length > 0 && (
+                            <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
+                              {thread.replies.map((r) => (
+                                <div
+                                  key={r.id}
+                                  className="rounded-xl border border-white/5 bg-black/25 pl-3 pr-2 py-2 border-l-2 border-l-cyan-400/40"
+                                >
+                                  <div className="flex items-center justify-between gap-2 mb-1">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-cyan-200/90">
+                                      {r.type === "ai"
+                                        ? "AI"
+                                        : r.authorLabel || "Reply"}
+                                    </span>
+                                    <span className="text-[10px] text-white/35 shrink-0">
+                                      {new Date(r.createdAt).toLocaleString()}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-white/80 leading-relaxed">
+                                    {r.text}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setStudioReplyOpenKey((prev) =>
+                                  prev === cardKey ? null : cardKey,
+                                );
+                                setStudioReplyDraft("");
+                              }}
+                              className={cn(
+                                "inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-widest transition-all",
+                                replyOpen
+                                  ? "bg-cyan-500/20 text-cyan-100 border border-cyan-400/40"
+                                  : "bg-white/[0.06] text-white/70 border border-white/10 hover:bg-white/[0.1] hover:text-white",
+                              )}
+                            >
+                              <Reply className="w-3.5 h-3.5" />
+                              Reply
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFocusHighlightId(thread.highlightId);
+                                setFocusSignal((n) => n + 1);
+                              }}
+                              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-widest bg-white/[0.06] text-white/70 border border-white/10 hover:bg-white/[0.1] hover:text-white transition-all"
+                            >
+                              <LocateFixed className="w-3.5 h-3.5" />
+                              On PDF
+                            </button>
+                          </div>
+
+                          {replyOpen && (
+                            <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
+                              <textarea
+                                value={studioReplyDraft}
+                                onChange={(e) =>
+                                  setStudioReplyDraft(e.target.value)
+                                }
+                                placeholder="Write a reply…"
+                                rows={3}
+                                className="w-full resize-y rounded-xl border border-white/15 bg-black/40 px-3 py-2.5 text-sm text-white/90 placeholder:text-white/35 focus:outline-none focus:ring-2 focus:ring-cyan-400/30 min-h-[5rem]"
+                              />
+                              <div className="flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  disabled={
+                                    studioReplyPosting ||
+                                    !studioReplyDraft.trim()
+                                  }
+                                  onClick={() => submitStudioReply(thread)}
+                                  className="rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest bg-cyan-500/25 text-cyan-100 border border-cyan-400/40 hover:bg-cyan-500/35 disabled:opacity-40 disabled:pointer-events-none transition-all"
+                                >
+                                  {studioReplyPosting ? "Saving…" : "Save"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setStudioReplyOpenKey(null);
+                                    setStudioReplyDraft("");
+                                  }}
+                                  className="rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-white/50 border border-white/10 hover:bg-white/[0.06] hover:text-white/80 transition-all"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
                   )}
                 </div>
               </div>
