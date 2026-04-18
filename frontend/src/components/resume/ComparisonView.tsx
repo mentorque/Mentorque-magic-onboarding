@@ -47,6 +47,7 @@ import { withApiBase } from "@/lib/apiBaseUrl";
 import {
   PdfAnnotator,
   type AnnotationAttribution,
+  type HighlightComment,
   normalizeCommentsForHighlight,
   rootComments,
   repliesToParent,
@@ -75,6 +76,7 @@ interface StudioThreadItem {
     text: string;
     createdAt: string;
     authorLabel?: string;
+    avatarSeed: string;
   };
   replies: Array<{
     id: string;
@@ -82,6 +84,7 @@ interface StudioThreadItem {
     text: string;
     createdAt: string;
     authorLabel?: string;
+    avatarSeed: string;
   }>;
 }
 
@@ -92,6 +95,63 @@ function commentAuthorLabel(c: {
 }): string | undefined {
   if (c.type === "ai") return undefined;
   return [c.author, c.role].filter(Boolean).join(" · ") || undefined;
+}
+
+/** Stable per-user seed for RoboHash (same seed → same robot). */
+function stableAvatarSeedForComment(
+  c: HighlightComment,
+  fallback: string,
+  annotation: AnnotationAttribution | null | undefined,
+): string {
+  if (c.type === "ai") return "mentorque-ai";
+  const author = c.author?.trim();
+  const role = c.role?.trim();
+  if (
+    annotation?.reviewerId &&
+    author &&
+    annotation.displayName.trim() === author
+  ) {
+    return annotation.reviewerId;
+  }
+  if (author || role) {
+    return [author, role].filter(Boolean).join("|");
+  }
+  return fallback;
+}
+
+function studioRobohashSrc(seed: string): string {
+  const safe = seed.slice(0, 240);
+  return `https://robohash.org/${encodeURIComponent(safe)}.png?set=set3&bgset=bg2&size=128x128`;
+}
+
+function StudioRoboAvatar({
+  seed,
+  size = "md",
+}: {
+  seed: string;
+  size?: "md" | "sm";
+}) {
+  const inner = size === "sm" ? "h-7 w-7" : "h-9 w-9";
+  const scale = size === "sm" ? "scale-[1.12]" : "scale-[1.15]";
+  return (
+    <div className="shrink-0 rounded-full bg-white p-[2px] shadow-md ring-1 ring-black/10">
+      <div
+        className={cn(
+          "relative overflow-hidden rounded-full bg-white",
+          inner,
+        )}
+      >
+        <img
+          src={studioRobohashSrc(seed)}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
+          className={cn("h-full w-full object-cover object-center", scale)}
+        />
+      </div>
+    </div>
+  );
 }
 
 // Section metadata
@@ -1120,6 +1180,11 @@ export function ComparisonView({
             text: root.text,
             createdAt: root.createdAt,
             authorLabel: commentAuthorLabel(root),
+            avatarSeed: stableAvatarSeedForComment(
+              root,
+              `comment-${root.id}`,
+              annotation,
+            ),
           },
           replies: repliesToParent(comments, root.id!).map((r) => ({
             id: r.id!,
@@ -1127,6 +1192,11 @@ export function ComparisonView({
             text: r.text,
             createdAt: r.createdAt,
             authorLabel: commentAuthorLabel(r),
+            avatarSeed: stableAvatarSeedForComment(
+              r,
+              `comment-${r.id}`,
+              annotation,
+            ),
           })),
         }));
       });
@@ -1146,7 +1216,7 @@ export function ComparisonView({
     } catch {
       // Ignore transient fetch errors; studio tab can still render stale entries.
     }
-  }, [documentId]);
+  }, [documentId, annotation]);
 
   useEffect(() => {
     loadStudioThreads();
@@ -1191,7 +1261,7 @@ export function ComparisonView({
   return (
     <div className="w-full flex-1 flex flex-col min-h-0">
       {/* Two-panel layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 flex-1 min-h-0 p-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1 min-h-0 p-4">
         {/* LEFT — Annotatable PDF */}
         <div className="flex flex-col items-center justify-start overflow-y-auto overflow-x-auto custom-scrollbar px-1 py-2">
           <PdfAnnotator
@@ -1339,22 +1409,27 @@ export function ComparisonView({
                               : "border-white/10 hover:bg-white/[0.07] hover:border-white/20",
                           )}
                         >
-                          <div className="flex items-center justify-between mb-2 gap-2">
-                            <span
-                              className={cn(
-                                "text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-full border",
-                                thread.root.type === "ai"
-                                  ? "text-violet-200 border-violet-300/30 bg-violet-500/10"
-                                  : "text-amber-200 border-amber-300/30 bg-amber-500/10",
-                              )}
-                            >
-                              {thread.root.type === "ai"
-                                ? "AI Revamp"
-                                : thread.root.authorLabel || "Note"}
-                            </span>
-                            <span className="text-[10px] text-white/40 shrink-0">
-                              {new Date(thread.root.createdAt).toLocaleString()}
-                            </span>
+                          <div className="flex items-start gap-2.5 mb-2">
+                            <StudioRoboAvatar seed={thread.root.avatarSeed} />
+                            <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
+                              <span
+                                className={cn(
+                                  "text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-full border",
+                                  thread.root.type === "ai"
+                                    ? "text-violet-200 border-violet-300/30 bg-violet-500/10"
+                                    : "text-amber-200 border-amber-300/30 bg-amber-500/10",
+                                )}
+                              >
+                                {thread.root.type === "ai"
+                                  ? "AI Revamp"
+                                  : thread.root.authorLabel || "Note"}
+                              </span>
+                              <span className="text-[10px] text-white/40 shrink-0">
+                                {new Date(
+                                  thread.root.createdAt,
+                                ).toLocaleString()}
+                              </span>
+                            </div>
                           </div>
                           {thread.selectedText && (
                             <p className="text-xs text-white/50 italic border-l-2 border-white/15 pl-3 mb-2 line-clamp-2">
@@ -1369,21 +1444,27 @@ export function ComparisonView({
                               {thread.replies.map((r) => (
                                 <div
                                   key={r.id}
-                                  className="rounded-xl border border-white/5 bg-black/25 pl-3 pr-2 py-2 border-l-2 border-l-cyan-400/40"
+                                  className="flex gap-2 rounded-xl border border-white/5 bg-black/25 py-2 pl-2 pr-2 border-l-2 border-l-cyan-400/40"
                                 >
-                                  <div className="flex items-center justify-between gap-2 mb-1">
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-cyan-200/90">
-                                      {r.type === "ai"
-                                        ? "AI"
-                                        : r.authorLabel || "Reply"}
-                                    </span>
-                                    <span className="text-[10px] text-white/35 shrink-0">
-                                      {new Date(r.createdAt).toLocaleString()}
-                                    </span>
+                                  <StudioRoboAvatar
+                                    seed={r.avatarSeed}
+                                    size="sm"
+                                  />
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center justify-between gap-2 mb-1">
+                                      <span className="text-[10px] font-black uppercase tracking-widest text-cyan-200/90">
+                                        {r.type === "ai"
+                                          ? "AI"
+                                          : r.authorLabel || "Reply"}
+                                      </span>
+                                      <span className="text-[10px] text-white/35 shrink-0">
+                                        {new Date(r.createdAt).toLocaleString()}
+                                      </span>
+                                    </div>
+                                    <p className="text-xs text-white/80 leading-relaxed">
+                                      {r.text}
+                                    </p>
                                   </div>
-                                  <p className="text-xs text-white/80 leading-relaxed">
-                                    {r.text}
-                                  </p>
                                 </div>
                               ))}
                             </div>
