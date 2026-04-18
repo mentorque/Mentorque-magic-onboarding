@@ -21,6 +21,7 @@ import { UploadPanel } from "../components/resume/UploadPanel";
 import { MentorqueLoader } from "../components/resume/MentorqueLoader";
 import { QuestionsForm } from "../components/resume/QuestionsForm";
 import { ComparisonView } from "../components/resume/ComparisonView";
+import { RevealRotatingCards } from "../components/resume/RevealRotatingCards";
 import { cn } from "@/lib/utils";
 import {
   type RevampStage,
@@ -513,6 +514,9 @@ export function ResumeRevampStep({
           >
             <MentorqueLoader size={140} />
             <div className="max-w-md space-y-3">
+              <p className="text-xs uppercase tracking-[0.2em] text-white/45">
+                resume-revamp-reveal
+              </p>
               <h2 className="text-2xl font-serif font-light tracking-tight text-foreground">
                 Your resume is almost ready
               </h2>
@@ -522,6 +526,18 @@ export function ResumeRevampStep({
                   : "We have saved your answers and generated your upgraded profile. Your detailed review will unlock here once your mentor marks your resume as ready to share. This page updates automatically — you can keep it open."}
               </p>
             </div>
+            <div className="max-w-4xl space-y-4 text-center">
+              <h3 className="text-lg font-medium text-white/90">
+                You are given a task to integrate an existing React component in the
+                codebase
+              </h3>
+              <p className="text-xs leading-relaxed text-white/60">
+                The codebase should support shadcn project structure, Tailwind CSS,
+                and Typescript. If it does not, setup should be done via shadcn CLI.
+                Components path defaults to /components/ui and should stay there.
+              </p>
+            </div>
+            <RevealRotatingCards />
           </motion.div>
         )}
 
