@@ -6,7 +6,10 @@ import {
   resumeSettingsTable,
 } from "@workspace/db";
 import { and, desc, eq, sql } from "drizzle-orm";
-import { authenticateFirebaseToken } from "../middlewares/auth.js";
+import {
+  authenticateFirebaseToken,
+  authenticateFirebaseOrMentorAccess,
+} from "../middlewares/auth.js";
 import { parseResumeText } from "../lib/resumeParser.js";
 import { generateQuestionsFromResume } from "../lib/resumeRevampAI.js";
 
@@ -304,7 +307,7 @@ router.post("/form-submission", authenticateFirebaseToken, async (req: Request, 
     // ── Step 3: Store AI results back onto the submission row ─────────────────────
     await db
       .update(onboardingSubmissionsTable)
-      .set({ parsedResume, aiQuestions, updatedAt: new Date() })
+      .set({ parsedResume, aiQuestions, updatedAt: new Date() } as any)
       .where(eq(onboardingSubmissionsTable.id, result.submission.id));
 
     return res.json({
@@ -354,7 +357,7 @@ router.post("/save-questionnaire", authenticateFirebaseToken, async (req: Reques
 
     const [submission] = await db
       .update(onboardingSubmissionsTable)
-      .set({ questionnaireAnswers: answers, revampResult, updatedAt: new Date() })
+      .set({ questionnaireAnswers: answers, revampResult, updatedAt: new Date() } as any)
       .where(eq(onboardingSubmissionsTable.id, submissionId))
       .returning();
 
@@ -403,6 +406,76 @@ router.get("/my-submission", authenticateFirebaseToken, handleGetMySubmission);
 
 /** Alias: same as `GET /my-submission` — onboarding details for the signed-in user. */
 router.get("/details", authenticateFirebaseToken, handleGetMySubmission);
+
+/**
+ * Unified payload for `/revamp-space`: Firebase (owner) or mentor wildcard token.
+ * Returns `annotation` for PDF note author labels (name + role from wildcard creation).
+ */
+router.get("/revamp-space-data", authenticateFirebaseOrMentorAccess, async (req: Request, res: Response) => {
+  try {
+    if (req.authMode === "firebase" && req.user) {
+      const authId = (req.user as { id: string }).id;
+      const [latest] = await db
+        .select()
+        .from(onboardingSubmissionsTable)
+        .where(eq(onboardingSubmissionsTable.userId, authId))
+        .orderBy(desc(onboardingSubmissionsTable.updatedAt))
+        .limit(1);
+      if (!latest) {
+        return res.json({ success: true, submission: null });
+      }
+      const ok =
+        latest.revealResume === true && latest.inputStatus === ONBOARDING_INPUT_STATUS.INPUT_COMPLETE;
+      if (!ok) {
+        return res.status(403).json({
+          success: false,
+          message: "Revamp space is not available for your account yet.",
+        });
+      }
+      const u = req.user as { name?: string; fullName?: string; email?: string | null };
+      const displayName =
+        (typeof u.name === "string" && u.name.trim()) ||
+        (typeof u.fullName === "string" && u.fullName.trim()) ||
+        (typeof u.email === "string" && u.email.trim()) ||
+        "You";
+      return res.json({
+        success: true,
+        submission: latest,
+        annotation: {
+          displayName,
+          role: "candidate",
+          onboardingId: latest.id,
+          reviewerId: null as string | null,
+        },
+      });
+    }
+
+    if (req.authMode === "mentor" && req.mentorAccess) {
+      const { payload, reviewer } = req.mentorAccess;
+      const [submission] = await db
+        .select()
+        .from(onboardingSubmissionsTable)
+        .where(eq(onboardingSubmissionsTable.id, payload.onboardingId));
+      if (!submission) {
+        return res.status(404).json({ success: false, message: "Submission not found." });
+      }
+      return res.json({
+        success: true,
+        submission,
+        annotation: {
+          displayName: reviewer.name,
+          role: payload.role,
+          onboardingId: reviewer.onboardingId,
+          reviewerId: reviewer.id,
+        },
+      });
+    }
+
+    return res.status(500).json({ success: false, message: "Unknown auth mode." });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
 
 router.get("/submissions/:id", async (req: Request, res: Response) => {
   const id = req.params.id as string;
@@ -651,79 +724,36 @@ router.post("/admin/:token/mentor-links", async (req: Request, res: Response) =>
 });
 
 router.post("/mentor/claim", async (req: Request, res: Response) => {
-  const { inviteToken, userId, name } = req.body ?? {};
+  const { inviteToken } = req.body ?? {};
   if (!inviteToken || typeof inviteToken !== "string") {
     return res
       .status(400)
       .json({ success: false, message: "inviteToken is required." });
   }
-  if (!userId || typeof userId !== "string") {
-    return res.status(400).json({ success: false, message: "userId is required." });
-  }
 
   try {
-    const [existingByToken] = await db
+    const [reviewer] = await db
       .select()
       .from(resumeReviewersTable)
       .where(eq(resumeReviewersTable.inviteToken, inviteToken));
 
-    if (!existingByToken) {
+    if (!reviewer) {
       return res
         .status(404)
-        .json({ success: false, message: "Invalid mentor invite link." });
-    }
-
-    let reviewer = existingByToken;
-    if (!existingByToken.userId) {
-      const [updated] = await db
-        .update(resumeReviewersTable)
-        .set({
-          userId,
-          name: typeof name === "string" && name.trim() ? name : existingByToken.name,
-          updatedAt: new Date(),
-        })
-        .where(eq(resumeReviewersTable.id, existingByToken.id))
-        .returning();
-      reviewer = updated;
-    }
-
-    // Ensure reviewer entry exists for this mentor + onboarding pair.
-    const [reviewerExists] = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(resumeReviewersTable)
-      .where(
-        and(
-          eq(resumeReviewersTable.onboardingId, reviewer.onboardingId),
-          eq(resumeReviewersTable.userId, userId),
-        ),
-      );
-
-    if (Number(reviewerExists?.count ?? 0) === 0) {
-      const [created] = await db
-        .insert(resumeReviewersTable)
-        .values({
-          onboardingId: reviewer.onboardingId,
-          userId,
-          name: reviewer.name,
-          role: "mentor",
-          inviteToken,
-        })
-        .returning();
-      reviewer = created;
+        .json({ success: false, message: "Invalid or expired invite link." });
     }
 
     const claimedRole: ReviewerRole =
-      existingByToken.role === "admin" ||
-      existingByToken.role === "user" ||
-      existingByToken.role === "mentor"
-        ? existingByToken.role
+      reviewer.role === "admin" ||
+      reviewer.role === "user" ||
+      reviewer.role === "mentor"
+        ? reviewer.role
         : "mentor";
 
     const accessToken = encodeAccessToken({
       onboardingId: reviewer.onboardingId,
       role: claimedRole,
       reviewerId: reviewer.id,
-      userId,
     });
 
     return res.json({
@@ -734,7 +764,7 @@ router.post("/mentor/claim", async (req: Request, res: Response) => {
         onboardingId: reviewer.onboardingId,
         role: claimedRole,
         reviewerId: reviewer.id,
-        userId,
+        name: reviewer.name,
       },
     });
   } catch (err: any) {

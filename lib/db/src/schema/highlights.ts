@@ -43,6 +43,8 @@ export interface HighlightComment {
   type: "ai" | "human";
   text: string;
   author?: string;
+  /** e.g. mentor | admin | candidate — shown next to author in UI */
+  role?: string;
   createdAt: string;
 }
 

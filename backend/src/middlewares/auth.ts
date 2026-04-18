@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import admin from 'firebase-admin';
+import { eq } from 'drizzle-orm';
+import { db, resumeReviewersTable } from '@workspace/db';
 import { getOrCreateUser } from '../utils/userSync.js'; // Note: ESM often requires .js extensions in imports depending on your esbuild config
 
 // Extend Express Request
@@ -8,6 +10,16 @@ declare global {
     interface Request {
       user?: any; // Replace 'any' with your inferred Drizzle User type later
       firebaseUid?: string;
+      authMode?: 'firebase' | 'mentor';
+      mentorAccess?: {
+        payload: {
+          onboardingId: string;
+          role: string;
+          reviewerId?: string;
+          userId?: string;
+        };
+        reviewer: typeof resumeReviewersTable.$inferSelect;
+      };
     }
   }
 }
@@ -80,5 +92,85 @@ export async function authenticateFirebaseToken(req: Request, res: Response, nex
     console.error('Firebase authentication error:', error.message);
     res.status(401).json({ error: 'Invalid token', message: 'Token invalid or expired' });
     return;
+  }
+}
+
+/**
+ * Firebase ID token (JWT) or mentor wildcard access token (base64url JSON from `/mentor/claim`).
+ */
+export async function authenticateFirebaseOrMentorAccess(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    res.status(401).json({ success: false, message: 'Authorization required.' });
+    return;
+  }
+
+  const token = authHeader.split('Bearer ')[1];
+  const looksLikeJwt = token.split('.').length === 3;
+
+  if (looksLikeJwt && admin.apps.length) {
+    try {
+      const decodedToken = await admin.auth().verifyIdToken(token);
+      const email = decodedToken.email?.trim() ? decodedToken.email : null;
+      const name = decodedToken.name || decodedToken.displayName || null;
+      let user;
+      try {
+        user = await getOrCreateUser(decodedToken.uid, email, name);
+      } catch (dbError) {
+        console.error('Database sync error (allowing auth to continue):', dbError);
+        user = { firebaseUid: decodedToken.uid, email, name };
+      }
+      req.user = user;
+      req.firebaseUid = decodedToken.uid;
+      req.authMode = 'firebase';
+      next();
+      return;
+    } catch (error: any) {
+      console.error('Firebase authentication error:', error.message);
+      res.status(401).json({ success: false, message: 'Token invalid or expired.' });
+      return;
+    }
+  }
+
+  try {
+    const payload = JSON.parse(Buffer.from(token, 'base64url').toString('utf8')) as {
+      onboardingId?: string;
+      reviewerId?: string;
+      role?: string;
+      userId?: string;
+    };
+    if (!payload?.onboardingId || !payload?.reviewerId) {
+      res.status(401).json({ success: false, message: 'Invalid access token.' });
+      return;
+    }
+
+    const [reviewer] = await db
+      .select()
+      .from(resumeReviewersTable)
+      .where(eq(resumeReviewersTable.id, payload.reviewerId));
+
+    if (!reviewer || reviewer.onboardingId !== payload.onboardingId) {
+      res.status(403).json({ success: false, message: 'Invalid reviewer access.' });
+      return;
+    }
+
+    req.authMode = 'mentor';
+    req.mentorAccess = {
+      payload: {
+        onboardingId: payload.onboardingId,
+        role: payload.role ?? reviewer.role,
+        reviewerId: payload.reviewerId,
+        userId: payload.userId,
+      },
+      reviewer,
+    };
+    next();
+  } catch {
+    res.status(401).json({ success: false, message: 'Invalid access token.' });
   }
 }

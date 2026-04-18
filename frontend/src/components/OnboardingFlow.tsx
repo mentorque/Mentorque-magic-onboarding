@@ -46,6 +46,7 @@ import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
 import { auth, googleProvider } from "@/lib/firebase";
 import { useAuthStore } from "@/store/useAuthStore";
 import { isInputSavedInDb } from "@/lib/onboardingInputStatus";
+import { useLocation } from "wouter";
 import { API_BASE_URL, withApiBase } from "@/lib/apiBaseUrl";
 import { ResumeTextOnlyPanel } from "./resume/ResumeTextOnlyPanel";
 import type { RevampQuestion, RevampResult } from "../lib/resumeRevampTypes";
@@ -763,6 +764,8 @@ const MentorqueLogo = () => (
 );
 
 export function OnboardingFlow() {
+  const [, setAppRoute] = useLocation();
+  const revampSpaceOnlyRef = useRef(false);
   const [step, setStepInternal] = useState<OnboardingStep>(() => {
     if (typeof window !== "undefined") {
       const path = window.location.pathname;
@@ -907,6 +910,10 @@ export function OnboardingFlow() {
         next !== "resumeRevamp" &&
         next !== "submitted"
       ) {
+        if (revampSpaceOnlyRef.current) {
+          setAppRoute("/revamp-space");
+          return;
+        }
         setStepInternal("resumeRevamp");
         setResumeRevampRevealRoute(true);
         if (typeof window !== "undefined") {
@@ -916,7 +923,7 @@ export function OnboardingFlow() {
       }
       setStepInternal(next);
     },
-    [inputsCompleteLocked],
+    [inputsCompleteLocked, setAppRoute],
   );
 
   useEffect(() => {
@@ -1087,6 +1094,7 @@ export function OnboardingFlow() {
               submission?: {
                 id?: string;
                 inputStatus?: string;
+                revealResume?: boolean;
                 uploadedResumeText?: string | null;
                 aiQuestions?: RevampQuestion[] | null;
                 parsedResume?: any | null;
@@ -1094,6 +1102,47 @@ export function OnboardingFlow() {
                 revampResult?: RevampResult | null;
               } | null;
             };
+
+            revampSpaceOnlyRef.current = false;
+
+            // Revealed + input complete → full-screen comparison only (/revamp-space)
+            if (
+              jd.submission?.inputStatus === "input_complete" &&
+              jd.submission?.revealResume === true
+            ) {
+              lockedFromServer = true;
+              revampSpaceOnlyRef.current = true;
+              setInputsCompleteLocked(true);
+              localStorage.setItem(INPUT_LOCKED_STORAGE_KEY, "1");
+              localStorage.setItem(FORM_SUBMITTED_KEY, "1");
+              if (jd.submission?.id) {
+                setOnboardingSubmissionId(jd.submission.id);
+                localStorage.setItem(SUBMISSION_STORAGE_KEY, jd.submission.id);
+              }
+              setAppRoute("/revamp-space");
+              return;
+            }
+
+            // Top-priority gate: input complete but not yet revealed → always hold on reveal page
+            if (
+              jd.submission?.inputStatus === "input_complete" &&
+              jd.submission?.revealResume === false
+            ) {
+              lockedFromServer = true;
+              setInputsCompleteLocked(true);
+              localStorage.setItem(INPUT_LOCKED_STORAGE_KEY, "1");
+              localStorage.setItem(FORM_SUBMITTED_KEY, "1");
+              if (jd.submission.id) {
+                setOnboardingSubmissionId(jd.submission.id);
+                localStorage.setItem(SUBMISSION_STORAGE_KEY, jd.submission.id);
+              }
+              setReturningUserRevealOnly(true);
+              setStep("resumeRevamp");
+              setResumeRevampRevealRoute(true);
+              window.history.replaceState(null, "", "/resume-revamp-reveal");
+              return;
+            }
+
             const st = jd.submission?.inputStatus;
             if (isInputSavedInDb(st)) {
               lockedFromServer = true;
@@ -1180,7 +1229,7 @@ export function OnboardingFlow() {
       }
     });
     return () => unsub();
-  }, [clearAuth, setAuth, commitResumeText, setStep]);
+  }, [clearAuth, setAuth, commitResumeText, setStep, setAppRoute]);
 
   const fireSideCanons = () => {
     const fire = confettiRef.current?.fire;
@@ -1219,6 +1268,7 @@ export function OnboardingFlow() {
       localStorage.clear();
     }
     setInputsCompleteLocked(false);
+    revampSpaceOnlyRef.current = false;
     setReturningUserRevealOnly(false);
     setFirstName("");
     setLastName("");

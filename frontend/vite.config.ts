@@ -15,6 +15,8 @@ const basePath = process.env.BASE_PATH ?? "/";
 
 export default defineConfig({
   base: basePath,
+  /** Default — dev server serves index.html for deep client routes (e.g. /resume-revamp-reveal). */
+  appType: "spa",
   plugins: [
     react(),
     tailwindcss(),

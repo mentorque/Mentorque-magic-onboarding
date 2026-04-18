@@ -42,7 +42,7 @@ import type {
   ChangeCategory,
 } from "@/lib/resumeRevampTypes";
 import { withApiBase } from "@/lib/apiBaseUrl";
-import { PdfAnnotator } from "./PdfAnnotator";
+import { PdfAnnotator, type AnnotationAttribution } from "./PdfAnnotator";
 import { SimplePdfViewer } from "./SimplePdfViewer";
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
@@ -54,6 +54,8 @@ interface ComparisonViewProps {
   compiledPdfUrl: string | null;
   onFinalize?: () => void;
   apiBaseUrl?: string;
+  /** PDF note attribution (wildcard name + role, or candidate). */
+  annotation?: AnnotationAttribution | null;
 }
 
 interface StudioCommentItem {
@@ -62,6 +64,7 @@ interface StudioCommentItem {
   text: string;
   selectedText?: string;
   createdAt: string;
+  authorLabel?: string;
 }
 
 // Section metadata
@@ -1054,6 +1057,7 @@ export function ComparisonView({
   compiledPdfUrl,
   changes,
   apiBaseUrl = "",
+  annotation = null,
 }: ComparisonViewProps) {
   const [activeTab, setActiveTab] = useState<"analysis" | "studio">("analysis");
   const [studioComments, setStudioComments] = useState<StudioCommentItem[]>([]);
@@ -1086,6 +1090,10 @@ export function ComparisonView({
               createdAt: String(
                 c?.createdAt ?? h?.createdAt ?? new Date(0).toISOString(),
               ),
+              authorLabel:
+                c?.type === "ai"
+                  ? undefined
+                  : [c?.author, c?.role].filter(Boolean).join(" · ") || undefined,
             }));
           },
         );
@@ -1124,6 +1132,7 @@ export function ComparisonView({
             focusHighlightId={focusHighlightId}
             focusSignal={focusSignal}
             focusedInsightText={insightFocusText}
+            annotation={annotation}
           />
         </div>
 
@@ -1262,7 +1271,9 @@ export function ComparisonView({
                                 : "text-amber-200 border-amber-300/30 bg-amber-500/10",
                             )}
                           >
-                            {item.type === "ai" ? "AI Revamp" : "Note"}
+                            {item.type === "ai"
+                              ? "AI Revamp"
+                              : item.authorLabel || "Note"}
                           </span>
                           <span className="text-[10px] text-white/40">
                             {new Date(item.createdAt).toLocaleString()}

@@ -58,6 +58,7 @@ export interface HighlightComment {
   type: "ai" | "human";
   text: string;
   author?: string;
+  role?: string;
   createdAt: string;
 }
 
@@ -77,6 +78,14 @@ interface PendingSelection {
   position: HighlightPosition;
 }
 
+/** When set, human notes are attributed with this name + role (wildcard / owner). */
+export interface AnnotationAttribution {
+  displayName: string;
+  role: string;
+  onboardingId: string;
+  reviewerId: string | null;
+}
+
 interface PdfAnnotatorProps {
   pdfUrl: string | null;
   revampedResume: any;
@@ -84,6 +93,7 @@ interface PdfAnnotatorProps {
   focusHighlightId?: string | null;
   focusSignal?: number;
   focusedInsightText?: string | null;
+  annotation?: AnnotationAttribution | null;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -348,7 +358,9 @@ function HighlightDetail({
                 <MessageSquare className="w-3 h-3" />
               )}
               <span className="text-[9px] font-black uppercase tracking-widest">
-                {c.type === "ai" ? "AI Review" : (c.author ?? "You")}
+                {c.type === "ai"
+                  ? "AI Review"
+                  : [c.author ?? "You", c.role].filter(Boolean).join(" · ")}
               </span>
             </div>
             {c.text}
@@ -426,6 +438,7 @@ export function PdfAnnotator({
   focusHighlightId,
   focusSignal = 0,
   focusedInsightText,
+  annotation = null,
 }: PdfAnnotatorProps) {
   const [numPages, setNumPages] = useState<number | null>(null);
   const [pageNumber, setPageNumber] = useState(1);
@@ -697,6 +710,14 @@ export function PdfAnnotator({
   // ── Save highlight to backend ───────────────────────────────────────────────
   const saveHighlight = useCallback(
     async (comment: HighlightComment, pos: HighlightPosition, text: string) => {
+      const humanNote =
+        comment.type === "human" && annotation
+          ? {
+              ...comment,
+              author: annotation.displayName,
+              role: annotation.role,
+            }
+          : comment;
       const res = await fetch(withApiBase("/api/highlights"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -704,7 +725,9 @@ export function PdfAnnotator({
           documentUrl: documentId,
           position: pos,
           content: { text },
-          comments: [comment],
+          comments: [humanNote],
+          onboardingId: annotation?.onboardingId ?? undefined,
+          reviewerId: annotation?.reviewerId ?? undefined,
         }),
       });
       const data = await res.json();
@@ -712,7 +735,7 @@ export function PdfAnnotator({
         setHighlights((h) => [...h, data.highlight]);
       }
     },
-    [documentId],
+    [documentId, annotation],
   );
 
   // ── Ask AI ──────────────────────────────────────────────────────────────────
