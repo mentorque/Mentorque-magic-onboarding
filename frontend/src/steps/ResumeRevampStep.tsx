@@ -1,18 +1,12 @@
 /**
  * ResumeRevampStep.tsx
- * Location: artifacts/mentorque-onboarding/src/steps/ResumeRevampStep.tsx
+ * Location: frontend/src/steps/ResumeRevampStep.tsx
  *
- * The new onboarding step inserted between "preferences" and "experience".
- * Orchestrates resume-revamp sub-stages:
- *   1. upload       — PDF or plain-text paste
- *   2. questions    — AI-generated questions
- *   3. awaitReveal  — wait until `revealResume` is true (admin)
- *   4. comparison   — PDF preview + bento report
- *   5. done         — success, advances parent step
- *
- * Usage in your step router (e.g. App.tsx or wherever steps are defined):
- *   case 'resume-revamp':
- *     return <ResumeRevampStep onComplete={goToNextStep} />;
+ * Orchestrates resume-revamp sub-stages (upload stage REMOVED — handled in onboarding wizard):
+ *   1. questions    — AI-generated questions (loaded from DB via preGeneratedQuestions prop)
+ *   2. awaitReveal  — wait until `revealResume` is true (admin toggles)
+ *   3. comparison   — PDF preview + bento report
+ *   4. done         — success, advances parent step
  */
 
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -32,7 +26,6 @@ import {
   Sparkles,
   Target,
 } from "lucide-react";
-import { UploadPanel } from "../components/resume/UploadPanel";
 import { MentorqueLoader } from "../components/resume/MentorqueLoader";
 import { QuestionsForm } from "../components/resume/QuestionsForm";
 import { ComparisonView } from "../components/resume/ComparisonView";
@@ -100,7 +93,7 @@ const REVEAL_SLIDES: RevealSlide[] = [
       },
       {
         Icon: Target,
-        text: "Faster “should I apply?” decisions with less second-guessing",
+        text: "Faster 'should I apply?' decisions with less second-guessing",
       },
     ],
   },
@@ -128,18 +121,32 @@ interface ResumeRevampStepProps {
   onComplete: (finalResumeData?: any) => void;
   /** Base URL of the onboarding API server. Defaults to same origin. */
   apiBaseUrl?: string;
-  /** When set (e.g. from main stepper "Upload resume"), skip internal upload stage. */
-  initialParseResult?: ParseResult | null;
-  /** Plain resume text saved in onboarding; AI parse runs here (not on the upload step). */
-  initialRawResumeText?: string | null;
   /** Onboarding row id — required to enforce `revealResume` before showing the review. */
   onboardingSubmissionId?: string | null;
   /** Firebase-backed API token for `/api/onboarding/my-submission`. */
   authToken?: string | null;
-  /** Fires when URL segment is `/resume-revamp-reveal` (loading + await mentor) vs `/resume-revamp` — parent hides global stepper on reveal. */
+  /** Fires when URL segment is `/resume-revamp-reveal` — parent hides global stepper on reveal. */
   onRevealPathChange?: (isRevealRoute: boolean) => void;
-  /** DB `input_complete` / `completed` — skip upload & questions; go straight to reveal / comparison. */
+  /**
+   * When true: skip upload + questions; go straight to awaitReveal.
+   * Set when returning user has already submitted questionnaire answers.
+   */
   skipEarlierRevampStages?: boolean;
+  /**
+   * AI-generated questions loaded from DB (ai_questions column).
+   * When provided, the questionnaire starts immediately without an upload step.
+   */
+  preGeneratedQuestions?: RevampQuestion[] | null;
+  /**
+   * Structured resume JSON from DB (parsed_resume column).
+   * Required for the revamp API call; loaded alongside preGeneratedQuestions.
+   */
+  preGeneratedParsedResume?: any | null;
+  /**
+   * Revamp result loaded from DB (revamp_result column).
+   * Used for returning users who already answered the questionnaire.
+   */
+  preLoadedRevampResult?: RevampResult | null;
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -147,14 +154,15 @@ interface ResumeRevampStepProps {
 export function ResumeRevampStep({
   onComplete,
   apiBaseUrl = "",
-  initialParseResult = null,
-  initialRawResumeText = null,
   onboardingSubmissionId = null,
   authToken = null,
   onRevealPathChange,
   skipEarlierRevampStages = false,
+  preGeneratedQuestions = null,
+  preGeneratedParsedResume = null,
+  preLoadedRevampResult = null,
 }: ResumeRevampStepProps) {
-  /** Direct navigation to `/resume-revamp-reveal` should show the waiting UI (same as DB-locked reveal-only). */
+  /** Direct navigation to `/resume-revamp-reveal` should show the waiting UI. */
   const [enteredViaRevealUrl] = useState(
     () =>
       typeof window !== "undefined" &&
@@ -187,45 +195,21 @@ export function ResumeRevampStep({
       return false;
     }
   }, [apiBaseUrl, onboardingSubmissionId, authToken]);
-  const hasPrefilledParse = Boolean(initialParseResult?.parsedResume);
-  const hasRawFromOnboarding = Boolean(initialRawResumeText?.trim());
-  const [parseFromRawFailed, setParseFromRawFailed] = useState(false);
-  const skipUpload =
-    hasPrefilledParse || (hasRawFromOnboarding && !parseFromRawFailed);
 
-  const [bootstrapFromRaw, setBootstrapFromRaw] = useState(
-    () => !revealOnlyFlow && hasRawFromOnboarding && !hasPrefilledParse,
-  );
+  /** Full-screen load overlay from submit click through revamp API + reveal check. */
+  const [revampFlowBusy, setRevampFlowBusy] = useState(false);
 
-  const [stage, setStage] = useState<RevampStage>(() => {
-    if (skipEarlierRevampStages) return "awaitReveal";
-    if (
-      typeof window !== "undefined" &&
-      window.location.pathname === "/resume-revamp-reveal"
-    ) {
-      return "awaitReveal";
-    }
-    if (typeof window === "undefined")
-      return skipUpload ? "questions" : "upload";
-    const hash = window.location.hash;
-    // Only restore state if there's an explicit hash (meaning user refreshed)
-    if (hash) {
-      try {
-        const saved = sessionStorage.getItem(STORAGE_KEY);
-        if (saved) {
-          const data = JSON.parse(saved);
-          if (hash === "#result" && data.parseResult && data.revampResult)
-            return "awaitReveal";
-          if (hash === "#questions" && data.parseResult) return "questions";
-        }
-      } catch {
-        /* ignore */
-      }
-    }
-    return skipUpload ? "questions" : "upload";
-  });
+  // Derive parseResult from pre-loaded props or sessionStorage
   const [parseResult, setParseResult] = useState<ParseResult | null>(() => {
-    if (initialParseResult?.parsedResume) return initialParseResult;
+    // Use DB-loaded data when available
+    if (preGeneratedQuestions?.length && preGeneratedParsedResume) {
+      return {
+        parsedResume: preGeneratedParsedResume,
+        questions: preGeneratedQuestions,
+        rawText: "",
+      };
+    }
+    // Fallback: sessionStorage (same-session navigation)
     if (typeof window === "undefined") return null;
     try {
       const saved = sessionStorage.getItem(STORAGE_KEY);
@@ -235,10 +219,11 @@ export function ResumeRevampStep({
     }
     return null;
   });
-  /** Full-screen load overlay from submit click through revamp API + reveal check. */
-  const [revampFlowBusy, setRevampFlowBusy] = useState(false);
 
   const [revampResult, setRevampResult] = useState<RevampResult | null>(() => {
+    // Use DB-loaded revamp result for returning users
+    if (preLoadedRevampResult) return preLoadedRevampResult;
+    // Fallback: sessionStorage
     if (typeof window === "undefined") return null;
     try {
       const saved = sessionStorage.getItem(STORAGE_KEY);
@@ -249,83 +234,22 @@ export function ResumeRevampStep({
     return null;
   });
 
-  // Run AI parse once when onboarding collected raw text (upload step does not parse).
-  useEffect(() => {
-    if (revealOnlyFlow) return;
-    if (hasPrefilledParse || !hasRawFromOnboarding || parseFromRawFailed)
-      return;
-
-    let cancelled = false;
-
-    const run = async () => {
-      try {
-        const saved = sessionStorage.getItem(STORAGE_KEY);
-        if (saved) {
-          const data = JSON.parse(saved) as { parseResult?: ParseResult };
-          if (data.parseResult?.parsedResume) {
-            setParseResult(data.parseResult);
-            setStage("questions");
-            setBootstrapFromRaw(false);
-            return;
-          }
-        }
-      } catch {
-        /* ignore */
-      }
-
-      const text = initialRawResumeText!.trim();
-      try {
-        const res = await fetch(`${apiBaseUrl}/api/resume-revamp/parse`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text }),
-        });
-        const data = (await res.json()) as {
-          parsedResume?: unknown;
-          questions?: unknown[];
-          rawText?: string;
-          message?: string;
-        };
-        if (!res.ok) {
-          throw new Error(data.message || "Failed to parse resume.");
-        }
-        if (!data.parsedResume || cancelled) return;
-        const next: ParseResult = {
-          parsedResume: data.parsedResume,
-          questions: Array.isArray(data.questions)
-            ? (data.questions as RevampQuestion[])
-            : [],
-          rawText: data.rawText ?? text,
-        };
-        setParseResult(next);
-        setStage("questions");
-      } catch (e) {
-        console.error(e);
-        if (!cancelled) {
-          setParseFromRawFailed(true);
-          setStage("upload");
-        }
-      } finally {
-        if (!cancelled) setBootstrapFromRaw(false);
-      }
-    };
-
-    void run();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    apiBaseUrl,
-    hasPrefilledParse,
-    hasRawFromOnboarding,
-    initialRawResumeText,
-    revealOnlyFlow,
-  ]);
+  const [stage, setStage] = useState<RevampStage>(() => {
+    if (revealOnlyFlow) return "awaitReveal";
+    if (
+      typeof window !== "undefined" &&
+      window.location.pathname === "/resume-revamp-reveal"
+    ) {
+      return "awaitReveal";
+    }
+    // Always start at questions (upload stage removed)
+    return "questions";
+  });
 
   // Persist to sessionStorage when stage changes
   useEffect(() => {
     if (stage === "questions" && parseResult) {
-      window.location.hash = "questions";
+      window.location.hash = "questionnaire";
       try {
         sessionStorage.setItem(
           STORAGE_KEY,
@@ -405,39 +329,12 @@ export function ResumeRevampStep({
     }
   }, [stage]);
 
-  // ── Stage 1 → 2: resume parsed ──────────────────────────────────────────
-  const handleParsed = (result: ParseResult) => {
-    // Skip was pressed (parsedResume is null) or no questions → skip to next onboarding step
-    if (!result.parsedResume || result.questions.length === 0) {
-      onComplete(undefined);
-      return;
-    }
-    setParseResult(result);
-    setStage("questions");
-  };
-
-  // ── Stage 2 → awaitReveal or comparison (gated by `revealResume`) ─────────
+  // ── Stage 1 → awaitReveal or comparison (gated by `revealResume`) ─────────
   const handleRevamped = async (result: RevampResult) => {
     setRevampResult(result);
     const allowed = await fetchRevealResumeAllowed();
     setStage(allowed ? "comparison" : "awaitReveal");
   };
-
-  if (
-    !revealOnlyFlow &&
-    bootstrapFromRaw &&
-    hasRawFromOnboarding &&
-    !hasPrefilledParse
-  ) {
-    return (
-      <div className="flex w-full flex-1 flex-col items-center justify-center gap-4 py-24">
-        <MentorqueLoader size={170} />
-        <p className="text-sm text-muted-foreground text-center max-w-sm">
-          Preparing your profile from your resume text…
-        </p>
-      </div>
-    );
-  }
 
   // ── Done ─────────────────────────────────────────────────────────────────
   if (stage === "done") {
@@ -497,21 +394,8 @@ export function ResumeRevampStep({
           </div>
         </div>
       )}
-      {/* Stage indicator removed - using reveal slides instead */}
 
       <AnimatePresence mode="popLayout">
-        {!skipUpload && stage === "upload" && (
-          <motion.div
-            key="upload"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.35, ease: "easeOut" }}
-          >
-            <UploadPanel onParsed={handleParsed} apiBaseUrl={apiBaseUrl} />
-          </motion.div>
-        )}
-
         {stage === "questions" && parseResult && (
           <motion.div
             key="questions"
@@ -527,6 +411,8 @@ export function ResumeRevampStep({
               onRevampFlowStart={() => setRevampFlowBusy(true)}
               onRevampFlowEnd={() => setRevampFlowBusy(false)}
               apiBaseUrl={apiBaseUrl}
+              onboardingSubmissionId={onboardingSubmissionId}
+              authToken={authToken}
             />
           </motion.div>
         )}

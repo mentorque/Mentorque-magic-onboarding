@@ -7,6 +7,8 @@ import {
 } from "@workspace/db";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { authenticateFirebaseToken } from "../middlewares/auth.js";
+import { parseResumeText } from "../lib/resumeParser.js";
+import { generateQuestionsFromResume } from "../lib/resumeRevampAI.js";
 
 const router = Router();
 const ADMIN_ACCESS_TOKEN =
@@ -181,6 +183,18 @@ router.post("/form-submission", authenticateFirebaseToken, async (req: Request, 
       : "";
   const settingName = firstName ? `Onboarding — ${firstName}` : "Onboarding resume";
 
+  // Guard: resume text is required for the AI pipeline
+  const rawResumeText =
+    uploadedResumeText !== undefined && uploadedResumeText !== null
+      ? String(uploadedResumeText).trim()
+      : "";
+  if (!rawResumeText) {
+    return res.status(400).json({
+      success: false,
+      message: "Resume text is required. Please upload your resume before proceeding.",
+    });
+  }
+
   try {
     const result = await db.transaction(async (tx: Parameters<Parameters<typeof db.transaction>[0]>[0]) => {
       if (submissionId && typeof submissionId === "string") {
@@ -228,10 +242,7 @@ router.post("/form-submission", authenticateFirebaseToken, async (req: Request, 
           .update(onboardingSubmissionsTable)
           .set({
             basicDetails: mergedBasic,
-            uploadedResumeText:
-              uploadedResumeText !== undefined && uploadedResumeText !== null
-                ? String(uploadedResumeText)
-                : null,
+            uploadedResumeText: rawResumeText,
             preferencesTaken,
             revealResume,
             resumeSettingId,
@@ -260,10 +271,7 @@ router.post("/form-submission", authenticateFirebaseToken, async (req: Request, 
         .values({
           userId: authId,
           basicDetails: mergedBasic,
-          uploadedResumeText:
-            uploadedResumeText !== undefined && uploadedResumeText !== null
-              ? String(uploadedResumeText)
-              : null,
+          uploadedResumeText: rawResumeText,
           preferencesTaken,
           revealResume,
           resumeSettingId: createdSetting.id,
@@ -274,7 +282,36 @@ router.post("/form-submission", authenticateFirebaseToken, async (req: Request, 
       return { submission, resumeSettingId: createdSetting.id };
     });
 
-    return res.json({ success: true, submission: result.submission, resumeSettingId: result.resumeSettingId });
+    // ── Step 2: AI pipeline — parse resume + generate context-aware questions ─────
+    console.log(`[form-submission] Running AI pipeline for submission ${result.submission.id}...`);
+    let parsedResume: unknown = null;
+    let aiQuestions: unknown[] = [];
+    try {
+      parsedResume = await parseResumeText(rawResumeText);
+      aiQuestions = await generateQuestionsFromResume(parsedResume, {
+        workExperience: workExperience as Record<string, string>,
+        preferences: preferencesTaken as Record<string, string>,
+      });
+      console.log(`[form-submission] AI pipeline done. ${aiQuestions.length} questions generated.`);
+    } catch (aiErr: any) {
+      console.error("[form-submission] AI pipeline failed:", aiErr?.message);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to generate personalized questions. Please try again.",
+      });
+    }
+
+    // ── Step 3: Store AI results back onto the submission row ─────────────────────
+    await db
+      .update(onboardingSubmissionsTable)
+      .set({ parsedResume, aiQuestions, updatedAt: new Date() })
+      .where(eq(onboardingSubmissionsTable.id, result.submission.id));
+
+    return res.json({
+      success: true,
+      submission: { ...result.submission, parsedResume, aiQuestions },
+      resumeSettingId: result.resumeSettingId,
+    });
   } catch (err: any) {
     if (err?.message === "FORBIDDEN") {
       return res.status(403).json({ success: false, message: "Forbidden or submission not found." });
@@ -287,6 +324,44 @@ router.post("/form-submission", authenticateFirebaseToken, async (req: Request, 
         ? { detail: String(err.detail) }
         : {}),
     });
+  }
+});
+
+/** Save questionnaire answers + revamp result in a single atomic write. */
+router.post("/save-questionnaire", authenticateFirebaseToken, async (req: Request, res: Response) => {
+  const authId = (req.user as { id: string }).id;
+  const { submissionId, answers, revampResult } = req.body ?? {};
+
+  if (!submissionId || typeof submissionId !== "string") {
+    return res.status(400).json({ success: false, message: "submissionId is required." });
+  }
+  if (!answers || typeof answers !== "object" || Array.isArray(answers)) {
+    return res.status(400).json({ success: false, message: "answers must be a non-null object." });
+  }
+  if (!revampResult || typeof revampResult !== "object") {
+    return res.status(400).json({ success: false, message: "revampResult is required." });
+  }
+
+  try {
+    const [existing] = await db
+      .select({ id: onboardingSubmissionsTable.id, userId: onboardingSubmissionsTable.userId })
+      .from(onboardingSubmissionsTable)
+      .where(eq(onboardingSubmissionsTable.id, submissionId));
+
+    if (!existing || existing.userId !== authId) {
+      return res.status(403).json({ success: false, message: "Forbidden or submission not found." });
+    }
+
+    const [submission] = await db
+      .update(onboardingSubmissionsTable)
+      .set({ questionnaireAnswers: answers, revampResult, updatedAt: new Date() })
+      .where(eq(onboardingSubmissionsTable.id, submissionId))
+      .returning();
+
+    return res.json({ success: true, submission });
+  } catch (err: any) {
+    console.error("[save-questionnaire]", err?.message);
+    return res.status(500).json({ success: false, message: err?.message ?? "Failed to save questionnaire." });
   }
 });
 

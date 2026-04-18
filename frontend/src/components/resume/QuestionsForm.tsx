@@ -4,15 +4,19 @@
  *
  * Sub-stage 2 of the resume revamp step.
  * Shows the AI-generated questions one by one with navigation.
+ * - Partial answers persisted in localStorage (restored on return)
+ * - On submit: runs revamp API call, then saves answers + result to DB in one write
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronRight, ChevronLeft } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { BlurFade, GlassButton } from "../ui/OnboardingUI";
 import { MentorqueLoader } from './MentorqueLoader';
 import type { RevampQuestion } from '../../lib/resumeRevampTypes';
+
+const PARTIAL_ANSWERS_KEY = "mentorque_questionnaire_partial_answers";
 
 interface QuestionsFormProps {
   questions: RevampQuestion[];
@@ -25,6 +29,12 @@ interface QuestionsFormProps {
   onRevampFlowStart?: () => void;
   /** Fires when the revamp request finishes (success or error). */
   onRevampFlowEnd?: () => void;
+  /** Submission ID for the DB save-questionnaire call. */
+  onboardingSubmissionId?: string | null;
+  /** Firebase auth token for the DB save-questionnaire call. */
+  authToken?: string | null;
+  /** Pre-filled answers to restore partial session. */
+  initialAnswers?: Record<string, string>;
 }
 
 export function QuestionsForm({
@@ -34,12 +44,36 @@ export function QuestionsForm({
   apiBaseUrl = '',
   onRevampFlowStart,
   onRevampFlowEnd,
+  onboardingSubmissionId,
+  authToken,
+  initialAnswers,
 }: QuestionsFormProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [answers, setAnswers] = useState<Record<string, string>>(() => {
+    // Priority: initialAnswers prop (from parent/DB) → localStorage partial → empty
+    if (initialAnswers && Object.keys(initialAnswers).length > 0) {
+      return initialAnswers;
+    }
+    try {
+      const stored = localStorage.getItem(PARTIAL_ANSWERS_KEY);
+      if (stored) return JSON.parse(stored) as Record<string, string>;
+    } catch {
+      /* ignore */
+    }
+    return {};
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [direction, setDirection] = useState(0); // -1 for back, 1 for next
+
+  // Persist partial answers to localStorage as user types
+  useEffect(() => {
+    try {
+      localStorage.setItem(PARTIAL_ANSWERS_KEY, JSON.stringify(answers));
+    } catch {
+      /* ignore quota / private mode */
+    }
+  }, [answers]);
 
   const filledCount = questions.filter((q) => {
     const val = answers[q.id];
@@ -67,6 +101,7 @@ export function QuestionsForm({
     setError(null);
     setLoading(true);
     try {
+      // Step 1: Call the revamp endpoint
       const response = await fetch(`${apiBaseUrl}/api/resume-revamp/revamp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -83,6 +118,39 @@ export function QuestionsForm({
         changes: any[];
         compiledPdfUrl: string | null;
       };
+
+      // Step 2: Save answers + revamp result to DB in one write
+      if (onboardingSubmissionId && authToken) {
+        try {
+          const saveRes = await fetch(`${apiBaseUrl}/api/onboarding/save-questionnaire`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${authToken}`,
+            },
+            body: JSON.stringify({
+              submissionId: onboardingSubmissionId,
+              answers,
+              revampResult: data,
+            }),
+          });
+          if (!saveRes.ok) {
+            console.warn('[QuestionsForm] save-questionnaire returned non-OK:', saveRes.status);
+          }
+        } catch (saveErr: any) {
+          // Non-fatal — revamp result is in sessionStorage as fallback
+          console.warn('[QuestionsForm] save-questionnaire failed (non-fatal):', saveErr?.message);
+        }
+      }
+
+      // Step 3: Clear partial answers from localStorage
+      try {
+        localStorage.removeItem(PARTIAL_ANSWERS_KEY);
+      } catch {
+        /* ignore */
+      }
+
+      // Step 4: Notify parent
       await Promise.resolve(onRevamped(data));
     } catch (err: any) {
       setError(err.message || 'Something went wrong.');
@@ -122,7 +190,7 @@ export function QuestionsForm({
         </BlurFade>
         <BlurFade delay={0.2} className="w-full">
           <p className="text-sm font-medium text-muted-foreground text-center max-w-lg mx-auto">
-            These are based on your resume. Answer what you can — more detail = a stronger AI Intel pass.
+            These are based on your resume and goals. Answer what you can — more detail = a stronger revamp.
           </p>
         </BlurFade>
       </div>
@@ -133,7 +201,7 @@ export function QuestionsForm({
           <div className="space-y-3">
             <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-widest text-muted-foreground/50">
               <span>Question {currentIndex + 1} of {questions.length}</span>
-              <span className="tabular-nums">{filledCount} answered (need 3+)</span>
+              <span className="tabular-nums">{filledCount} answered (need {required}+)</span>
             </div>
             <div className="h-2 rounded-full bg-foreground/5 border border-foreground/10 overflow-hidden p-0.5">
               <motion.div
@@ -243,8 +311,8 @@ export function QuestionsForm({
                           <div className="flex items-center justify-start gap-3 relative z-10">
                             <div className={cn(
                               "w-2 h-2 rounded-full border transition-all duration-300",
-                              isSelected 
-                                ? "bg-primary border-primary scale-125 shadow-[0_0_8px_hsl(var(--primary))]" 
+                              isSelected
+                                ? "bg-primary border-primary scale-125 shadow-[0_0_8px_hsl(var(--primary))]"
                                 : "bg-transparent border-foreground/20"
                             )} />
                             <span>{option}</span>
@@ -348,7 +416,7 @@ export function QuestionsForm({
           <BlurFade delay={0.5}>
             <div className="flex flex-col items-end gap-3">
               {!canProceed && !loading && (
-                <motion.p 
+                <motion.p
                   initial={{ opacity: 0, x: 10 }}
                   animate={{ opacity: 1, x: 0 }}
                   className="text-[10px] text-muted-foreground/50 font-bold uppercase tracking-[0.2em] pr-1"

@@ -42,13 +42,13 @@ import type {
 import confetti from "canvas-confetti";
 import { ResumeRevampStep } from "../steps/ResumeRevampStep";
 import { BlurFade, GlassButton, TextLoop } from "./ui/OnboardingUI";
-// Add these to your existing imports
 import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
 import { auth, googleProvider } from "@/lib/firebase";
 import { useAuthStore } from "@/store/useAuthStore";
 import { isInputSavedInDb } from "@/lib/onboardingInputStatus";
 import { API_BASE_URL, withApiBase } from "@/lib/apiBaseUrl";
 import { ResumeTextOnlyPanel } from "./resume/ResumeTextOnlyPanel";
+import type { RevampQuestion, RevampResult } from "../lib/resumeRevampTypes";
 
 type Api = { fire: (options?: ConfettiOptions) => void };
 export type ConfettiRef = Api | null;
@@ -888,6 +888,14 @@ export function OnboardingFlow() {
   /** True only after login when DB already had `input_complete` — skip upload/questions, reveal-only. */
   const [returningUserRevealOnly, setReturningUserRevealOnly] = useState(false);
 
+  // ── Pre-loaded DB questionnaire data ────────────────────────────────────────
+  /** AI-generated questions from DB (ai_questions column). */
+  const [preGeneratedQuestions, setPreGeneratedQuestions] = useState<RevampQuestion[] | null>(null);
+  /** Structured resume JSON from DB (parsed_resume column). */
+  const [preGeneratedParsedResume, setPreGeneratedParsedResume] = useState<any>(null);
+  /** Revamp result from DB (revamp_result column) — for returning users. */
+  const [preLoadedRevampResult, setPreLoadedRevampResult] = useState<RevampResult | null>(null);
+
   const setStep = useCallback(
     (next: OnboardingStep) => {
       if (next === "login") {
@@ -1070,13 +1078,16 @@ export function OnboardingFlow() {
                 id?: string;
                 inputStatus?: string;
                 uploadedResumeText?: string | null;
+                aiQuestions?: RevampQuestion[] | null;
+                parsedResume?: any | null;
+                questionnaireAnswers?: Record<string, string> | null;
+                revampResult?: RevampResult | null;
               } | null;
             };
             const st = jd.submission?.inputStatus;
             if (isInputSavedInDb(st)) {
               lockedFromServer = true;
               setInputsCompleteLocked(true);
-              setReturningUserRevealOnly(true);
               localStorage.setItem(INPUT_LOCKED_STORAGE_KEY, "1");
               if (jd.submission?.id) {
                 setOnboardingSubmissionId(jd.submission.id);
@@ -1086,9 +1097,51 @@ export function OnboardingFlow() {
                 commitResumeText(jd.submission.uploadedResumeText ?? "");
               }
               localStorage.setItem(FORM_SUBMITTED_KEY, "1");
-              setStep("resumeRevamp");
-              setResumeRevampRevealRoute(true);
-              window.history.replaceState(null, "", "/resume-revamp-reveal");
+
+              const hasAnswers = Boolean(
+                jd.submission?.questionnaireAnswers &&
+                Object.keys(jd.submission.questionnaireAnswers).length > 0
+              );
+              const hasQuestions = Boolean(
+                jd.submission?.aiQuestions &&
+                (Array.isArray(jd.submission.aiQuestions)
+                  ? jd.submission.aiQuestions.length > 0
+                  : true)
+              );
+
+              if (hasAnswers) {
+                // Questionnaire already submitted → go to awaitReveal / comparison
+                setReturningUserRevealOnly(true);
+                if (jd.submission?.parsedResume) setPreGeneratedParsedResume(jd.submission.parsedResume);
+                if (jd.submission?.revampResult) setPreLoadedRevampResult(jd.submission.revampResult);
+                if (jd.submission?.aiQuestions) {
+                  setPreGeneratedQuestions(
+                    Array.isArray(jd.submission.aiQuestions)
+                      ? jd.submission.aiQuestions
+                      : (jd.submission.aiQuestions as any)?.questions ?? []
+                  );
+                }
+                setStep("resumeRevamp");
+                setResumeRevampRevealRoute(true);
+                window.history.replaceState(null, "", "/resume-revamp-reveal");
+              } else if (hasQuestions) {
+                // Form submitted, questions ready, not yet answered → show questionnaire
+                setPreGeneratedQuestions(
+                  Array.isArray(jd.submission?.aiQuestions)
+                    ? jd.submission!.aiQuestions!
+                    : (jd.submission?.aiQuestions as any)?.questions ?? []
+                );
+                if (jd.submission?.parsedResume) setPreGeneratedParsedResume(jd.submission.parsedResume);
+                setStep("resumeRevamp");
+                setResumeRevampRevealRoute(false);
+                window.history.replaceState(null, "", "/resume-revamp#questionnaire");
+              } else {
+                // Legacy / questions still generating — fallback to reveal
+                setReturningUserRevealOnly(true);
+                setStep("resumeRevamp");
+                setResumeRevampRevealRoute(true);
+                window.history.replaceState(null, "", "/resume-revamp-reveal");
+              }
             }
           }
         } catch (e) {
@@ -1221,6 +1274,13 @@ export function OnboardingFlow() {
 
   const submitFormAndOpenRevamp = async () => {
     if (!canProceedPrefs) return;
+    // Guard: resume text is required for AI question generation
+    if (!uploadedResumeText.trim()) {
+      setFormSubmitError(
+        "Please upload your resume before continuing. We need it to generate personalized questions.",
+      );
+      return;
+    }
     const u = useAuthStore.getState().user;
     const token = useAuthStore.getState().token;
     if (!u?.id || !token) return;
@@ -1267,18 +1327,36 @@ export function OnboardingFlow() {
       const data = (await res.json()) as {
         success?: boolean;
         message?: string;
-        submission?: { id: string };
+        submission?: {
+          id: string;
+          aiQuestions?: RevampQuestion[] | null;
+          parsedResume?: any | null;
+        };
       };
       if (!res.ok || !data.success || !data.submission?.id) {
         throw new Error(data.message ?? "Could not save your profile.");
       }
       persistSubmissionId(data.submission.id);
+      // Store AI-generated data for immediate use in questionnaire
+      if (data.submission.aiQuestions) {
+        setPreGeneratedQuestions(
+          Array.isArray(data.submission.aiQuestions)
+            ? data.submission.aiQuestions
+            : (data.submission.aiQuestions as any)?.questions ?? []
+        );
+      }
+      if (data.submission.parsedResume) {
+        setPreGeneratedParsedResume(data.submission.parsedResume);
+      }
       if (typeof window !== "undefined") {
         localStorage.setItem(FORM_SUBMITTED_KEY, "1");
         localStorage.setItem(INPUT_LOCKED_STORAGE_KEY, "1");
       }
       setInputsCompleteLocked(true);
+      // Route to questionnaire (not reveal)
+      setResumeRevampRevealRoute(false);
       setStep("resumeRevamp");
+      window.history.replaceState(null, "", "/resume-revamp#questionnaire");
     } catch (e) {
       console.error(e);
       setFormSubmitError(
@@ -2131,12 +2209,12 @@ export function OnboardingFlow() {
             >
               <ResumeRevampStep
                 onComplete={(finalResumeData) => {
-                  // Trigger the final submission flow
                   handleFinalSubmit();
                 }}
                 apiBaseUrl={API_BASE_URL}
-                initialParseResult={null}
-                initialRawResumeText={uploadedResumeText || null}
+                preGeneratedQuestions={preGeneratedQuestions}
+                preGeneratedParsedResume={preGeneratedParsedResume}
+                preLoadedRevampResult={preLoadedRevampResult}
                 onboardingSubmissionId={onboardingSubmissionId}
                 authToken={authToken}
                 onRevealPathChange={setResumeRevampRevealRoute}
