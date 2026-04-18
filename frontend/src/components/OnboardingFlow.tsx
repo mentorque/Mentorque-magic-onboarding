@@ -1456,16 +1456,16 @@ export function OnboardingFlow() {
             <span className="font-mono text-[10px] text-muted-foreground">
               ID: {user.mentorqueUserId ?? user.id}
             </span>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="mt-1 inline-flex items-center gap-1 rounded-lg border border-white/15 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-foreground/90 hover:bg-white/10"
+            >
+              <LogOut className="h-3 w-3" />
+              Log out
+            </button>
           </>
         )}
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="mt-1 inline-flex items-center gap-1 rounded-lg border border-white/15 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-foreground/90 hover:bg-white/10"
-        >
-          <LogOut className="h-3 w-3" />
-          Log out
-        </button>
       </div>
 
       <div className="fixed top-3 left-1/2 -translate-x-1/2 z-20">
