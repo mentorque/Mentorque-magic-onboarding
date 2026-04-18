@@ -71,7 +71,7 @@ function generateCommentId(): string {
   return `c${ts}${r}`;
 }
 
-function normalizeCommentsForHighlight(
+export function normalizeCommentsForHighlight(
   highlightId: string,
   raw: unknown,
 ): HighlightComment[] {
@@ -104,7 +104,7 @@ function normalizeHighlight(raw: any): Highlight {
   };
 }
 
-function repliesToParent(
+export function repliesToParent(
   all: HighlightComment[],
   parentId: string,
 ): HighlightComment[] {
@@ -116,7 +116,7 @@ function repliesToParent(
     );
 }
 
-function rootComments(all: HighlightComment[]): HighlightComment[] {
+export function rootComments(all: HighlightComment[]): HighlightComment[] {
   return all.filter((c) => !c.inReplyToId);
 }
 

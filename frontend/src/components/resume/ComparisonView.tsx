@@ -42,7 +42,13 @@ import type {
   ChangeCategory,
 } from "@/lib/resumeRevampTypes";
 import { withApiBase } from "@/lib/apiBaseUrl";
-import { PdfAnnotator, type AnnotationAttribution } from "./PdfAnnotator";
+import {
+  PdfAnnotator,
+  type AnnotationAttribution,
+  normalizeCommentsForHighlight,
+  rootComments,
+  repliesToParent,
+} from "./PdfAnnotator";
 import { SimplePdfViewer } from "./SimplePdfViewer";
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
@@ -58,13 +64,32 @@ interface ComparisonViewProps {
   annotation?: AnnotationAttribution | null;
 }
 
-interface StudioCommentItem {
+interface StudioThreadItem {
   highlightId: string;
-  type: "ai" | "human";
-  text: string;
   selectedText?: string;
-  createdAt: string;
-  authorLabel?: string;
+  root: {
+    id: string;
+    type: "ai" | "human";
+    text: string;
+    createdAt: string;
+    authorLabel?: string;
+  };
+  replies: Array<{
+    id: string;
+    type: "ai" | "human";
+    text: string;
+    createdAt: string;
+    authorLabel?: string;
+  }>;
+}
+
+function commentAuthorLabel(c: {
+  type: "ai" | "human";
+  author?: string;
+  role?: string;
+}): string | undefined {
+  if (c.type === "ai") return undefined;
+  return [c.author, c.role].filter(Boolean).join(" · ") || undefined;
 }
 
 // Section metadata
@@ -1060,7 +1085,7 @@ export function ComparisonView({
   annotation = null,
 }: ComparisonViewProps) {
   const [activeTab, setActiveTab] = useState<"analysis" | "studio">("analysis");
-  const [studioComments, setStudioComments] = useState<StudioCommentItem[]>([]);
+  const [studioThreads, setStudioThreads] = useState<StudioThreadItem[]>([]);
   const [focusHighlightId, setFocusHighlightId] = useState<string | null>(null);
   const [focusSignal, setFocusSignal] = useState(0);
   const [insightFocusText, setInsightFocusText] = useState<string | null>(null);
@@ -1077,33 +1102,47 @@ export function ComparisonView({
         const data = await res.json();
         if (!data?.success || !Array.isArray(data.highlights)) return;
 
-        const flattened: StudioCommentItem[] = data.highlights.flatMap(
+        const threads: StudioThreadItem[] = data.highlights.flatMap(
           (h: any) => {
-            const selectedText = h?.content?.text;
-            const comments = Array.isArray(h?.comments) ? h.comments : [];
-            return comments
-              .filter((c: any) => !c?.inReplyToId)
-              .map((c: any) => ({
-              highlightId: h.id,
-              type: c?.type === "ai" ? "ai" : "human",
-              text: String(c?.text ?? ""),
-              selectedText:
-                typeof selectedText === "string" ? selectedText : undefined,
-              createdAt: String(
-                c?.createdAt ?? h?.createdAt ?? new Date(0).toISOString(),
-              ),
-              authorLabel:
-                c?.type === "ai"
-                  ? undefined
-                  : [c?.author, c?.role].filter(Boolean).join(" · ") || undefined,
+            const selectedText =
+              typeof h?.content?.text === "string"
+                ? h.content.text
+                : undefined;
+            const comments = normalizeCommentsForHighlight(h.id, h?.comments);
+            const roots = rootComments(comments);
+            return roots.map((root) => ({
+              highlightId: String(h.id),
+              selectedText,
+              root: {
+                id: root.id!,
+                type: root.type,
+                text: root.text,
+                createdAt: root.createdAt,
+                authorLabel: commentAuthorLabel(root),
+              },
+              replies: repliesToParent(comments, root.id!).map((r) => ({
+                id: r.id!,
+                type: r.type,
+                text: r.text,
+                createdAt: r.createdAt,
+                authorLabel: commentAuthorLabel(r),
+              })),
             }));
           },
         );
 
-        flattened.sort(
-          (a, b) => +new Date(b.createdAt) - +new Date(a.createdAt),
-        );
-        if (!disposed) setStudioComments(flattened);
+        threads.sort((a, b) => {
+          const ta = Math.max(
+            +new Date(a.root.createdAt),
+            ...a.replies.map((r) => +new Date(r.createdAt)),
+          );
+          const tb = Math.max(
+            +new Date(b.root.createdAt),
+            ...b.replies.map((r) => +new Date(r.createdAt)),
+          );
+          return tb - ta;
+        });
+        if (!disposed) setStudioThreads(threads);
       } catch {
         // Ignore transient fetch errors; studio tab can still render stale entries.
       }
@@ -1245,7 +1284,7 @@ export function ComparisonView({
                 </p>
 
                 <div className="space-y-3 max-h-[65vh] overflow-y-auto pr-1 custom-scrollbar">
-                  {studioComments.length === 0 ? (
+                  {studioThreads.length === 0 ? (
                     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/60">
                       No comments yet. Select text in the PDF and use{" "}
                       <span className="text-white/90 font-semibold">
@@ -1255,11 +1294,12 @@ export function ComparisonView({
                       <span className="text-white/90 font-semibold">Note</span>.
                     </div>
                   ) : (
-                    studioComments.map((item, i) => (
+                    studioThreads.map((thread) => (
                       <button
-                        key={`${item.highlightId}-${i}`}
+                        key={`${thread.highlightId}-${thread.root.id}`}
+                        type="button"
                         onClick={() => {
-                          setFocusHighlightId(item.highlightId);
+                          setFocusHighlightId(thread.highlightId);
                           setFocusSignal((n) => n + 1);
                         }}
                         className="w-full text-left rounded-2xl border border-white/10 bg-white/[0.04] p-4 hover:bg-white/[0.07] hover:border-white/20 transition-all"
@@ -1268,27 +1308,51 @@ export function ComparisonView({
                           <span
                             className={cn(
                               "text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-full border",
-                              item.type === "ai"
+                              thread.root.type === "ai"
                                 ? "text-violet-200 border-violet-300/30 bg-violet-500/10"
                                 : "text-amber-200 border-amber-300/30 bg-amber-500/10",
                             )}
                           >
-                            {item.type === "ai"
+                            {thread.root.type === "ai"
                               ? "AI Revamp"
-                              : item.authorLabel || "Note"}
+                              : thread.root.authorLabel || "Note"}
                           </span>
                           <span className="text-[10px] text-white/40">
-                            {new Date(item.createdAt).toLocaleString()}
+                            {new Date(thread.root.createdAt).toLocaleString()}
                           </span>
                         </div>
-                        {item.selectedText && (
+                        {thread.selectedText && (
                           <p className="text-xs text-white/50 italic border-l-2 border-white/15 pl-3 mb-2 line-clamp-2">
-                            "{item.selectedText}"
+                            "{thread.selectedText}"
                           </p>
                         )}
                         <p className="text-sm text-white/85 leading-relaxed">
-                          {item.text}
+                          {thread.root.text}
                         </p>
+                        {thread.replies.length > 0 && (
+                          <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
+                            {thread.replies.map((r) => (
+                              <div
+                                key={r.id}
+                                className="rounded-xl border border-white/5 bg-black/25 pl-3 pr-2 py-2 border-l-2 border-l-cyan-400/40"
+                              >
+                                <div className="flex items-center justify-between gap-2 mb-1">
+                                  <span className="text-[10px] font-black uppercase tracking-widest text-cyan-200/90">
+                                    {r.type === "ai"
+                                      ? "AI"
+                                      : r.authorLabel || "Reply"}
+                                  </span>
+                                  <span className="text-[10px] text-white/35 shrink-0">
+                                    {new Date(r.createdAt).toLocaleString()}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-white/80 leading-relaxed">
+                                  {r.text}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </button>
                     ))
                   )}

@@ -20,17 +20,28 @@ import OpenAI from "openai";
 
 const router = Router();
 
-function generateCommentId(): string {
+/** Matches `highlightsTable` PK generator — explicit id on POST must use the same shape. */
+function generateHighlightId(): string {
   const ts = Date.now().toString(36);
-  const r1 = Math.random().toString(36).substring(2, 11);
-  const r2 = Math.random().toString(36).substring(2, 11);
+  const r1 = Math.random().toString(36).substring(2, 15);
+  const r2 = Math.random().toString(36).substring(2, 15);
   return `c${ts}${r1}${r2}`;
 }
 
-function ensureCommentIds(comments: HighlightComment[]): HighlightComment[] {
-  return comments.map((c) => ({
+/**
+ * Deterministic ids for comments missing `id` so they match the frontend
+ * (`PdfAnnotator` uses `${highlightId}-c${index}`) and PATCH parent lookup succeeds.
+ */
+function ensureCommentIds(
+  highlightId: string,
+  comments: HighlightComment[],
+): HighlightComment[] {
+  return comments.map((c, i) => ({
     ...c,
-    id: c.id && String(c.id).trim() ? c.id : generateCommentId(),
+    id:
+      c.id && String(c.id).trim()
+        ? String(c.id).trim()
+        : `${highlightId}-c${i}`,
   }));
 }
 
@@ -101,13 +112,16 @@ router.post("/", async (req: Request, res: Response) => {
   }
 
   try {
+    const highlightId = generateHighlightId();
     const normalizedComments = ensureCommentIds(
+      highlightId,
       Array.isArray(comments) ? (comments as HighlightComment[]) : [],
     );
 
     const [highlight] = await db
       .insert(highlightsTable)
       .values({
+        id: highlightId,
         userId: userId ?? null,
         onboardingId: onboardingId ?? null,
         reviewerId: reviewerId ?? null,
@@ -187,6 +201,7 @@ router.patch("/:id/comments", async (req: Request, res: Response) => {
     }
 
     let existing = ensureCommentIds(
+      highlightId,
       Array.isArray(row.comments) ? (row.comments as HighlightComment[]) : [],
     );
 
@@ -208,7 +223,7 @@ router.patch("/:id/comments", async (req: Request, res: Response) => {
     }
 
     const newComment: HighlightComment = {
-      id: generateCommentId(),
+      id: `${highlightId}-c${existing.length}`,
       type: type === "ai" ? "ai" : "human",
       text: text.trim(),
       author: typeof author === "string" ? author : undefined,
