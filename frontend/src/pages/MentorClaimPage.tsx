@@ -3,6 +3,7 @@ import type { RouteComponentProps } from "wouter";
 import { signInWithPopup } from "firebase/auth";
 import { auth, googleProvider } from "@/lib/firebase";
 import { useAuthStore } from "@/store/useAuthStore";
+import { withApiBase } from "@/lib/apiBaseUrl";
 
 const LS_ACCESS_TOKEN = "onboardingAccessToken";
 const LS_ACCESS_PAYLOAD = "onboardingAccessPayload";
@@ -19,7 +20,7 @@ export function MentorClaimPage(props: RouteComponentProps<{ inviteToken: string
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const idToken = await result.user.getIdToken();
-      const syncRes = await fetch("/api/auth/sync", {
+      const syncRes = await fetch(withApiBase("/api/auth/sync"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -30,7 +31,7 @@ export function MentorClaimPage(props: RouteComponentProps<{ inviteToken: string
       const syncData = await syncRes.json();
       setAuth(syncData.user, idToken);
 
-      const res = await fetch("/api/onboarding/mentor/claim", {
+      const res = await fetch(withApiBase("/api/onboarding/mentor/claim"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

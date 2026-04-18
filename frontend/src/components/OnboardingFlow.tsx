@@ -47,6 +47,7 @@ import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
 import { auth, googleProvider } from "@/lib/firebase";
 import { useAuthStore } from "@/store/useAuthStore";
 import { isInputSavedInDb } from "@/lib/onboardingInputStatus";
+import { API_BASE_URL, withApiBase } from "@/lib/apiBaseUrl";
 import { ResumeTextOnlyPanel } from "./resume/ResumeTextOnlyPanel";
 
 type Api = { fire: (options?: ConfettiOptions) => void };
@@ -901,7 +902,7 @@ export function OnboardingFlow() {
       }
       try {
         const idToken = await firebaseUser.getIdToken();
-        const response = await fetch("/api/auth/sync", {
+        const response = await fetch(withApiBase("/api/auth/sync"), {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -916,7 +917,7 @@ export function OnboardingFlow() {
 
         let lockedFromServer = false;
         try {
-          const od = await fetch("/api/onboarding/details", {
+          const od = await fetch(withApiBase("/api/onboarding/details"), {
             headers: { Authorization: `Bearer ${idToken}` },
           });
           if (od.ok) {
@@ -1068,7 +1069,7 @@ export function OnboardingFlow() {
         seniority,
         workStyle,
       };
-      const res = await fetch("/api/onboarding/form-submission", {
+      const res = await fetch(withApiBase("/api/onboarding/form-submission"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1120,7 +1121,7 @@ export function OnboardingFlow() {
       // 2. Sync with Backend
       // Note: We use a raw fetch here because we are establishing the session.
       // Once synced, your API client handles the rest of the app's requests.
-      const response = await fetch("/api/auth/sync", {
+      const response = await fetch(withApiBase("/api/auth/sync"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1186,7 +1187,7 @@ export function OnboardingFlow() {
       if (id && token) {
         try {
           await fetch(
-            `/api/onboarding/submissions/${encodeURIComponent(id)}`,
+            withApiBase(`/api/onboarding/submissions/${encodeURIComponent(id)}`),
             {
               method: "PATCH",
               headers: {
@@ -1570,7 +1571,7 @@ export function OnboardingFlow() {
               </div>
               <ResumeTextOnlyPanel
                 onReady={handleResumeTextReady}
-                apiBaseUrl=""
+                apiBaseUrl={API_BASE_URL}
               />
             
             </motion.div>
@@ -1917,7 +1918,7 @@ export function OnboardingFlow() {
                   // Trigger the final submission flow
                   handleFinalSubmit();
                 }}
-                apiBaseUrl=""
+                apiBaseUrl={API_BASE_URL}
                 initialParseResult={null}
                 initialRawResumeText={uploadedResumeText || null}
                 onboardingSubmissionId={onboardingSubmissionId}

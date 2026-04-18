@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { RouteComponentProps } from "wouter";
+import { withApiBase } from "@/lib/apiBaseUrl";
 
 type Row = {
   onboardingId: string;
@@ -26,7 +27,9 @@ export function AdminOnboardingPanel(props: RouteComponentProps<{ token: string 
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`/api/onboarding/admin/${adminToken}/list`);
+        const res = await fetch(
+          withApiBase(`/api/onboarding/admin/${adminToken}/list`),
+        );
         const data = await res.json();
         if (!data?.success) throw new Error(data?.message ?? "Failed to load list.");
         if (!cancelled) setItems(data.items ?? []);
@@ -51,11 +54,14 @@ export function AdminOnboardingPanel(props: RouteComponentProps<{ token: string 
     setSavingId(onboardingId);
     setError(null);
     try {
-      const res = await fetch(`/api/onboarding/admin/${adminToken}/mentor-links`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ onboardingId, name, role }),
-      });
+      const res = await fetch(
+        withApiBase(`/api/onboarding/admin/${adminToken}/mentor-links`),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ onboardingId, name, role }),
+        },
+      );
       const data = await res.json();
       if (!data?.success) throw new Error(data?.message ?? "Failed to create link.");
       const path = data.wildcardLink as string;

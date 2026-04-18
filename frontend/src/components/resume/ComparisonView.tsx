@@ -41,6 +41,7 @@ import type {
   ChangeSection,
   ChangeCategory,
 } from "@/lib/resumeRevampTypes";
+import { withApiBase } from "@/lib/apiBaseUrl";
 import { PdfAnnotator } from "./PdfAnnotator";
 import { SimplePdfViewer } from "./SimplePdfViewer";
 
@@ -1052,6 +1053,7 @@ export function ComparisonView({
   revampedResume,
   compiledPdfUrl,
   changes,
+  apiBaseUrl = "",
 }: ComparisonViewProps) {
   const [activeTab, setActiveTab] = useState<"analysis" | "studio">("analysis");
   const [studioComments, setStudioComments] = useState<StudioCommentItem[]>([]);
@@ -1066,7 +1068,7 @@ export function ComparisonView({
     const fetchStudioComments = async () => {
       try {
         const res = await fetch(
-          `/api/highlights?documentUrl=${encodeURIComponent(documentId)}`,
+          withApiBase(`/api/highlights?documentUrl=${encodeURIComponent(documentId)}`),
         );
         const data = await res.json();
         if (!data?.success || !Array.isArray(data.highlights)) return;
@@ -1114,7 +1116,7 @@ export function ComparisonView({
           <PdfAnnotator
             pdfUrl={
               compiledPdfUrl
-                ? `/api/resume-revamp/proxy-pdf?url=${encodeURIComponent(compiledPdfUrl)}`
+                ? `${apiBaseUrl}/api/resume-revamp/proxy-pdf?url=${encodeURIComponent(compiledPdfUrl)}`
                 : null
             }
             revampedResume={revampedResume}

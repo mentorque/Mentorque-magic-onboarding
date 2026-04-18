@@ -29,6 +29,7 @@ import {
   Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { withApiBase } from "@/lib/apiBaseUrl";
 
 // ─── Worker ──────────────────────────────────────────────────────────────────
 
@@ -469,7 +470,7 @@ export function PdfAnnotator({
   // ── Fetch existing highlights ───────────────────────────────────────────────
   useEffect(() => {
     if (!documentId) return;
-    fetch(`/api/highlights?documentUrl=${encodeURIComponent(documentId)}`)
+    fetch(withApiBase(`/api/highlights?documentUrl=${encodeURIComponent(documentId)}`))
       .then((r) => r.json())
       .then((d) => {
         if (d.success) setHighlights(d.highlights);
@@ -696,7 +697,7 @@ export function PdfAnnotator({
   // ── Save highlight to backend ───────────────────────────────────────────────
   const saveHighlight = useCallback(
     async (comment: HighlightComment, pos: HighlightPosition, text: string) => {
-      const res = await fetch("/api/highlights", {
+      const res = await fetch(withApiBase("/api/highlights"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -720,7 +721,7 @@ export function PdfAnnotator({
     setPopupMode("ai-loading");
 
     try {
-      const res = await fetch("/api/highlights/ai-review", {
+      const res = await fetch(withApiBase("/api/highlights/ai-review"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: pending.text }),
@@ -765,7 +766,7 @@ export function PdfAnnotator({
 
   // ── Delete highlight ─────────────────────────────────────────────────────────
   const deleteHighlight = useCallback(async (id: string) => {
-    await fetch(`/api/highlights/${id}`, { method: "DELETE" });
+    await fetch(withApiBase(`/api/highlights/${id}`), { method: "DELETE" });
     setHighlights((h) => h.filter((x) => x.id !== id));
     setActiveHighlight(null);
   }, []);
