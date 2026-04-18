@@ -534,21 +534,29 @@ export function ResumeRevampStep({
         {stage === "awaitReveal" && (
           <motion.div
             key="awaitReveal"
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.35, ease: "easeOut" }}
-            className="flex w-full flex-1 flex-col items-center justify-start gap-4 px-4 pt-2 pb-8 text-center"
+            transition={{ duration: 0.4, ease: "easeOut" }}
+            className="flex w-full flex-1 flex-col items-center justify-center gap-8 px-6 py-12"
           >
-            <MentorqueLoader size={64} />
-            <div className="w-full max-w-4xl min-h-[3.25rem] overflow-x-auto sm:min-h-[4.25rem]">
+            {/* Eyebrow + loader */}
+            <div className="flex flex-col items-center gap-3">
+              <MentorqueLoader size={56} />
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/35">
+                Your resume is being cooked
+              </p>
+            </div>
+
+            {/* Vapor headline */}
+            <div className="w-full max-w-4xl" style={{ height: "5.5rem" }}>
               <VaporizeTextCycle
                 texts={revealTitles}
                 onTextIndexChange={setRevealSlideIndex}
                 font={{
                   fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
-                  fontSize: "44px",
-                  fontWeight: 600,
+                  fontSize: "58px",
+                  fontWeight: 700,
                 }}
                 color="rgb(255, 255, 255)"
                 spread={5}
@@ -563,38 +571,44 @@ export function ResumeRevampStep({
                 tag={Tag.H2}
               />
             </div>
+
+            {/* Subtitle */}
+            <p className="max-w-md text-center text-base leading-relaxed text-white/45">
+              Getting every detail right to showcase the best of your profile.
+            </p>
+
+            {/* Synced feature cards */}
             <AnimatePresence mode="wait">
               <motion.ul
                 key={revealSlideIndex}
-                initial={{ opacity: 0, y: 6 }}
+                initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                transition={{ duration: 0.35, ease: "easeOut" }}
-                className="mx-auto w-full max-w-lg space-y-3 text-left md:max-w-xl"
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.3, ease: "easeOut" }}
+                className="w-full max-w-xl space-y-3"
               >
                 {REVEAL_SLIDES[revealSlideIndex]?.items.map(({ Icon, text }, i) => (
-                  <li
+                  <motion.li
                     key={i}
-                    className="flex items-start gap-3.5 rounded-2xl border border-white/12 bg-white/[0.06] px-4 py-3.5 shadow-sm backdrop-blur-md md:gap-4 md:px-5 md:py-4"
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.3, ease: "easeOut", delay: i * 0.1 }}
+                    className="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.06] px-5 py-4 shadow-md backdrop-blur-sm"
                   >
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/[0.08] md:h-11 md:w-11">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/12 bg-white/[0.07]">
                       <Icon
-                        className="h-5 w-5 text-emerald-300/95 md:h-6 md:w-6"
+                        className="h-5 w-5 text-emerald-300"
                         strokeWidth={1.75}
                         aria-hidden
                       />
                     </span>
-                    <span className="pt-0.5 text-[15px] font-medium leading-relaxed tracking-tight text-white/92 md:text-base">
+                    <span className="text-base font-medium leading-snug tracking-tight text-white/88">
                       {text}
                     </span>
-                  </li>
+                  </motion.li>
                 ))}
               </motion.ul>
             </AnimatePresence>
-            <p className="max-w-sm text-[11px] leading-snug text-muted-foreground/90 md:text-xs">
-              Your mentor unlocks your full review here when it&apos;s ready. This
-              page updates automatically.
-            </p>
           </motion.div>
         )}
 
