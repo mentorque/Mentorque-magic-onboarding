@@ -18,6 +18,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
   ArrowUpRight,
   Building2,
   FileText,
@@ -29,6 +30,7 @@ import {
   Eye,
   Reply,
   LocateFixed,
+  Loader2,
 } from "lucide-react";
 import {
   SiGoogle,
@@ -42,6 +44,7 @@ import type {
   BulletChange,
   ChangeSection,
   ChangeCategory,
+  RevampResult,
 } from "@/lib/resumeRevampTypes";
 import { withApiBase } from "@/lib/apiBaseUrl";
 import {
@@ -65,10 +68,15 @@ interface ComparisonViewProps {
   apiBaseUrl?: string;
   /** PDF note attribution (wildcard name + role, or candidate). */
   annotation?: AnnotationAttribution | null;
+  /** Bearer token (Firebase or mentor access) for admin studio actions. */
+  authToken?: string;
+  /** Called when admin "Make Changes" produces a new revamp payload + PDF. */
+  onRevampResultApplied?: (next: RevampResult) => void;
 }
 
 interface StudioThreadItem {
   highlightId: string;
+  isResolved: boolean;
   selectedText?: string;
   root: {
     id: string;
@@ -1145,6 +1153,8 @@ export function ComparisonView({
   changes,
   apiBaseUrl = "",
   annotation = null,
+  authToken = "",
+  onRevampResultApplied,
 }: ComparisonViewProps) {
   const [activeTab, setActiveTab] = useState<"analysis" | "studio">("analysis");
   const [studioThreads, setStudioThreads] = useState<StudioThreadItem[]>([]);
@@ -1153,16 +1163,26 @@ export function ComparisonView({
   );
   const [studioReplyDraft, setStudioReplyDraft] = useState("");
   const [studioReplyPosting, setStudioReplyPosting] = useState(false);
+  const [studioApplyBusy, setStudioApplyBusy] = useState(false);
+  const [studioApplyError, setStudioApplyError] = useState<string | null>(null);
+  const [highlightsRefreshTick, setHighlightsRefreshTick] = useState(0);
   const [focusHighlightId, setFocusHighlightId] = useState<string | null>(null);
   const [focusSignal, setFocusSignal] = useState(0);
   const [insightFocusText, setInsightFocusText] = useState<string | null>(null);
   const documentId = compiledPdfUrl ?? "resume-draft";
 
+  const isAdminAnnotator =
+    (annotation?.role ?? "").toLowerCase() === "admin";
+
   const loadStudioThreads = useCallback(async () => {
     try {
-      const res = await fetch(
-        withApiBase(`/api/highlights?documentUrl=${encodeURIComponent(documentId)}`),
-      );
+      const q = new URLSearchParams();
+      q.set("documentUrl", documentId);
+      q.set("includeResolved", "true");
+      if (annotation?.onboardingId) {
+        q.set("onboardingId", annotation.onboardingId);
+      }
+      const res = await fetch(withApiBase(`/api/highlights?${q.toString()}`));
       const data = await res.json();
       if (!data?.success || !Array.isArray(data.highlights)) return;
 
@@ -1173,6 +1193,7 @@ export function ComparisonView({
         const roots = rootComments(comments);
         return roots.map((root) => ({
           highlightId: String(h.id),
+          isResolved: Boolean(h?.isResolved),
           selectedText,
           root: {
             id: root.id!,
@@ -1218,6 +1239,15 @@ export function ComparisonView({
     }
   }, [documentId, annotation]);
 
+  const activeStudioThreads = useMemo(
+    () => studioThreads.filter((t) => !t.isResolved),
+    [studioThreads],
+  );
+  const resolvedStudioThreads = useMemo(
+    () => studioThreads.filter((t) => t.isResolved),
+    [studioThreads],
+  );
+
   useEffect(() => {
     loadStudioThreads();
     const interval = setInterval(loadStudioThreads, 5000);
@@ -1258,6 +1288,216 @@ export function ComparisonView({
     }
   };
 
+  const applyMakeChangesFromStudio = useCallback(async () => {
+    if (!authToken?.trim()) {
+      setStudioApplyError("Sign in with a valid access token to apply changes.");
+      return;
+    }
+    if (!annotation?.onboardingId) {
+      setStudioApplyError("Missing onboarding context.");
+      return;
+    }
+    if (activeStudioThreads.length === 0) {
+      setStudioApplyError("No open feedback threads to apply.");
+      return;
+    }
+    setStudioApplyBusy(true);
+    setStudioApplyError(null);
+    try {
+      const res = await fetch(
+        withApiBase("/api/resume-revamp/apply-studio-feedback"),
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${authToken.trim()}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            documentUrl: compiledPdfUrl ?? documentId,
+            onboardingId: annotation.onboardingId,
+            currentRevampedResume: revampedResume,
+          }),
+        },
+      );
+      const data = await res.json();
+      if (!data.success) {
+        setStudioApplyError(
+          typeof data.message === "string" ? data.message : "Request failed.",
+        );
+        return;
+      }
+      const next = data.revampResult as RevampResult;
+      onRevampResultApplied?.(next);
+
+      const saveRes = await fetch(withApiBase("/api/onboarding/save-revamp-result"), {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${authToken.trim()}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ revampResult: next }),
+      });
+      const saveData = await saveRes.json();
+      if (!saveRes.ok || !saveData.success) {
+        setStudioApplyError(
+          typeof saveData.message === "string"
+            ? `${saveData.message} (PDF updated in session — refresh may be needed.)`
+            : "Could not persist revamp to the server.",
+        );
+      }
+
+      setHighlightsRefreshTick((n) => n + 1);
+      await loadStudioThreads();
+    } catch (e: unknown) {
+      setStudioApplyError(
+        e instanceof Error ? e.message : "Network error while applying changes.",
+      );
+    } finally {
+      setStudioApplyBusy(false);
+    }
+  }, [
+    authToken,
+    annotation?.onboardingId,
+    activeStudioThreads.length,
+    compiledPdfUrl,
+    documentId,
+    revampedResume,
+    onRevampResultApplied,
+    loadStudioThreads,
+  ]);
+
+  function renderStudioThreadCard(
+    thread: StudioThreadItem,
+    resolvedLook: boolean,
+  ) {
+    const cardKey = `${thread.highlightId}-${thread.root.id}`;
+    const replyOpen = studioReplyOpenKey === cardKey;
+    return (
+      <div
+        key={cardKey}
+        className={cn(
+          "w-full rounded-2xl border bg-white/[0.04] p-4 transition-all",
+          resolvedLook && "opacity-90",
+          replyOpen
+            ? "border-cyan-400/35 ring-1 ring-cyan-400/20 shadow-[0_0_24px_rgba(34,211,238,0.08)]"
+            : "border-white/10 hover:bg-white/[0.07] hover:border-white/20",
+        )}
+      >
+        <div className="flex items-start gap-2.5 mb-2">
+          <StudioRoboAvatar seed={thread.root.avatarSeed} />
+          <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
+            <span
+              className={cn(
+                "text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-full border",
+                thread.root.type === "ai"
+                  ? "text-violet-200 border-violet-300/30 bg-violet-500/10"
+                  : "text-amber-200 border-amber-300/30 bg-amber-500/10",
+              )}
+            >
+              {thread.root.type === "ai"
+                ? "AI Revamp"
+                : thread.root.authorLabel || "Note"}
+            </span>
+            <span className="text-[10px] text-white/40 shrink-0">
+              {new Date(thread.root.createdAt).toLocaleString()}
+            </span>
+          </div>
+        </div>
+        {thread.selectedText && (
+          <p className="text-xs text-white/50 italic border-l-2 border-white/15 pl-3 mb-2 line-clamp-2">
+            "{thread.selectedText}"
+          </p>
+        )}
+        <p className="text-sm text-white/85 leading-relaxed">{thread.root.text}</p>
+        {thread.replies.length > 0 && (
+          <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
+            {thread.replies.map((r) => (
+              <div
+                key={r.id}
+                className="flex gap-2 rounded-xl border border-white/5 bg-black/25 py-2 pl-2 pr-2 border-l-2 border-l-cyan-400/40"
+              >
+                <StudioRoboAvatar seed={r.avatarSeed} size="sm" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-cyan-200/90">
+                      {r.type === "ai" ? "AI" : r.authorLabel || "Reply"}
+                    </span>
+                    <span className="text-[10px] text-white/35 shrink-0">
+                      {new Date(r.createdAt).toLocaleString()}
+                    </span>
+                  </div>
+                  <p className="text-xs text-white/80 leading-relaxed">{r.text}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setStudioReplyOpenKey((prev) => (prev === cardKey ? null : cardKey));
+              setStudioReplyDraft("");
+            }}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-widest transition-all",
+              replyOpen
+                ? "bg-cyan-500/20 text-cyan-100 border border-cyan-400/40"
+                : "bg-white/[0.06] text-white/70 border border-white/10 hover:bg-white/[0.1] hover:text-white",
+            )}
+          >
+            <Reply className="w-3.5 h-3.5" />
+            Reply
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setFocusHighlightId(thread.highlightId);
+              setFocusSignal((n) => n + 1);
+            }}
+            className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-widest bg-white/[0.06] text-white/70 border border-white/10 hover:bg-white/[0.1] hover:text-white transition-all"
+          >
+            <LocateFixed className="w-3.5 h-3.5" />
+            On PDF
+          </button>
+        </div>
+
+        {replyOpen && (
+          <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
+            <textarea
+              value={studioReplyDraft}
+              onChange={(e) => setStudioReplyDraft(e.target.value)}
+              placeholder="Write a reply…"
+              rows={3}
+              className="w-full resize-y rounded-xl border border-white/15 bg-black/40 px-3 py-2.5 text-sm text-white/90 placeholder:text-white/35 focus:outline-none focus:ring-2 focus:ring-cyan-400/30 min-h-[5rem]"
+            />
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={studioReplyPosting || !studioReplyDraft.trim()}
+                onClick={() => submitStudioReply(thread)}
+                className="rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest bg-cyan-500/25 text-cyan-100 border border-cyan-400/40 hover:bg-cyan-500/35 disabled:opacity-40 disabled:pointer-events-none transition-all"
+              >
+                {studioReplyPosting ? "Saving…" : "Save"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setStudioReplyOpenKey(null);
+                  setStudioReplyDraft("");
+                }}
+                className="rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-white/50 border border-white/10 hover:bg-white/[0.06] hover:text-white/80 transition-all"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="w-full flex-1 flex flex-col min-h-0">
       {/* Two-panel layout */}
@@ -1276,6 +1516,7 @@ export function ComparisonView({
             focusSignal={focusSignal}
             focusedInsightText={insightFocusText}
             annotation={annotation}
+            highlightsRefreshSignal={highlightsRefreshTick}
           />
         </div>
 
@@ -1385,8 +1626,41 @@ export function ComparisonView({
                   All AI revamps and note comments from your PDF annotations.
                 </p>
 
+                {isAdminAnnotator && (
+                  <div className="mb-5 space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => void applyMakeChangesFromStudio()}
+                      disabled={
+                        studioApplyBusy ||
+                        activeStudioThreads.length === 0 ||
+                        !authToken?.trim()
+                      }
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-400/35 bg-emerald-500/15 px-4 py-3 text-xs font-black uppercase tracking-[0.2em] text-emerald-100 shadow-[0_0_24px_rgba(16,185,129,0.12)] transition-all hover:bg-emerald-500/25 disabled:pointer-events-none disabled:opacity-40"
+                    >
+                      {studioApplyBusy ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-4 w-4" />
+                      )}
+                      Make Changes
+                    </button>
+                    {studioApplyError && (
+                      <p className="text-xs text-red-300/95 leading-relaxed">
+                        {studioApplyError}
+                      </p>
+                    )}
+                    {!authToken?.trim() && (
+                      <p className="text-[10px] text-white/35">
+                        Sign in with a mentor access link to use Make Changes.
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 <div className="space-y-3 max-h-[65vh] overflow-y-auto pr-1 custom-scrollbar">
-                  {studioThreads.length === 0 ? (
+                  {activeStudioThreads.length === 0 &&
+                  resolvedStudioThreads.length === 0 ? (
                     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/60">
                       No comments yet. Select text in the PDF and use{" "}
                       <span className="text-white/90 font-semibold">
@@ -1396,141 +1670,32 @@ export function ComparisonView({
                       <span className="text-white/90 font-semibold">Note</span>.
                     </div>
                   ) : (
-                    studioThreads.map((thread) => {
-                      const cardKey = `${thread.highlightId}-${thread.root.id}`;
-                      const replyOpen = studioReplyOpenKey === cardKey;
-                      return (
-                        <div
-                          key={cardKey}
-                          className={cn(
-                            "w-full rounded-2xl border bg-white/[0.04] p-4 transition-all",
-                            replyOpen
-                              ? "border-cyan-400/35 ring-1 ring-cyan-400/20 shadow-[0_0_24px_rgba(34,211,238,0.08)]"
-                              : "border-white/10 hover:bg-white/[0.07] hover:border-white/20",
-                          )}
-                        >
-                          <div className="flex items-start gap-2.5 mb-2">
-                            <StudioRoboAvatar seed={thread.root.avatarSeed} />
-                            <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
-                              <span
-                                className={cn(
-                                  "text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-full border",
-                                  thread.root.type === "ai"
-                                    ? "text-violet-200 border-violet-300/30 bg-violet-500/10"
-                                    : "text-amber-200 border-amber-300/30 bg-amber-500/10",
-                                )}
-                              >
-                                {thread.root.type === "ai"
-                                  ? "AI Revamp"
-                                  : thread.root.authorLabel || "Note"}
-                              </span>
-                              <span className="text-[10px] text-white/40 shrink-0">
-                                {new Date(
-                                  thread.root.createdAt,
-                                ).toLocaleString()}
-                              </span>
-                            </div>
-                          </div>
-                          {thread.selectedText && (
-                            <p className="text-xs text-white/50 italic border-l-2 border-white/15 pl-3 mb-2 line-clamp-2">
-                              "{thread.selectedText}"
-                            </p>
-                          )}
-                          <p className="text-sm text-white/85 leading-relaxed">
-                            {thread.root.text}
-                          </p>
-                          {thread.replies.length > 0 && (
-                            <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
-                              {thread.replies.map((r) => (
-                                <div
-                                  key={r.id}
-                                  className="flex gap-2 rounded-xl border border-white/5 bg-black/25 py-2 pl-2 pr-2 border-l-2 border-l-cyan-400/40"
-                                >
-                                  <StudioRoboAvatar
-                                    seed={r.avatarSeed}
-                                    size="sm"
-                                  />
-                                  <div className="min-w-0 flex-1">
-                                    <div className="flex items-center justify-between gap-2 mb-1">
-                                      <span className="text-[10px] font-black uppercase tracking-widest text-cyan-200/90">
-                                        {r.type === "ai"
-                                          ? "AI"
-                                          : r.authorLabel || "Reply"}
-                                      </span>
-                                      <span className="text-[10px] text-white/35 shrink-0">
-                                        {new Date(r.createdAt).toLocaleString()}
-                                      </span>
-                                    </div>
-                                    <p className="text-xs text-white/80 leading-relaxed">
-                                      {r.text}
-                                    </p>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-
-                          <div className="mt-3 flex flex-wrap items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setStudioReplyOpenKey((prev) =>
-                                  prev === cardKey ? null : cardKey,
-                                );
-                                setStudioReplyDraft("");
-                              }}
-                              className={cn(
-                                "inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-widest transition-all",
-                                replyOpen
-                                  ? "bg-cyan-500/20 text-cyan-100 border border-cyan-400/40"
-                                  : "bg-white/[0.06] text-white/70 border border-white/10 hover:bg-white/[0.1] hover:text-white",
-                              )}
-                            >
-                              <Reply className="w-3.5 h-3.5" />
-                              Reply
-                            </button>
-                          
-                          </div>
-
-                          {replyOpen && (
-                            <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
-                              <textarea
-                                value={studioReplyDraft}
-                                onChange={(e) =>
-                                  setStudioReplyDraft(e.target.value)
-                                }
-                                placeholder="Write a reply…"
-                                rows={3}
-                                className="w-full resize-y rounded-xl border border-white/15 bg-black/40 px-3 py-2.5 text-sm text-white/90 placeholder:text-white/35 focus:outline-none focus:ring-2 focus:ring-cyan-400/30 min-h-[5rem]"
-                              />
-                              <div className="flex flex-wrap gap-2">
-                                <button
-                                  type="button"
-                                  disabled={
-                                    studioReplyPosting ||
-                                    !studioReplyDraft.trim()
-                                  }
-                                  onClick={() => submitStudioReply(thread)}
-                                  className="rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest bg-cyan-500/25 text-cyan-100 border border-cyan-400/40 hover:bg-cyan-500/35 disabled:opacity-40 disabled:pointer-events-none transition-all"
-                                >
-                                  {studioReplyPosting ? "Saving…" : "Save"}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setStudioReplyOpenKey(null);
-                                    setStudioReplyDraft("");
-                                  }}
-                                  className="rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-white/50 border border-white/10 hover:bg-white/[0.06] hover:text-white/80 transition-all"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            </div>
-                          )}
+                    <>
+                      {activeStudioThreads.length === 0 && (
+                        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-xs text-white/50">
+                          No open feedback threads. Resolved items are below.
                         </div>
-                      );
-                    })
+                      )}
+                      {activeStudioThreads.map((thread) =>
+                        renderStudioThreadCard(thread, false),
+                      )}
+
+                      {resolvedStudioThreads.length > 0 && (
+                        <details className="group rounded-2xl border border-white/10 bg-white/[0.02] overflow-hidden">
+                          <summary className="cursor-pointer list-none px-4 py-3 flex items-center justify-between gap-2 text-sm font-semibold text-white/70 hover:bg-white/[0.04] [&::-webkit-details-marker]:hidden">
+                            <span>
+                              Resolved feedback ({resolvedStudioThreads.length})
+                            </span>
+                            <ChevronDown className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" />
+                          </summary>
+                          <div className="space-y-3 px-4 pb-4 pt-2 border-t border-white/10 max-h-[42vh] overflow-y-auto custom-scrollbar">
+                            {resolvedStudioThreads.map((thread) =>
+                              renderStudioThreadCard(thread, true),
+                            )}
+                          </div>
+                        </details>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

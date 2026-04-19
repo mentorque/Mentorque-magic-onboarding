@@ -7,9 +7,10 @@
  *   app.use('/api/resume-revamp', resumeRevampRouter);
  *
  * Endpoints:
- *   POST /api/resume-revamp/parse          — upload PDF or paste text → parsed resume + questions
- *   POST /api/resume-revamp/revamp         — parsed resume + answers  → revamped resume + diff
- *   POST /api/resume-revamp/compile-final  — final merged resume      → compiled PDF URL
+ *   POST /api/resume-revamp/parse                  — upload PDF or paste text → parsed resume + questions
+ *   POST /api/resume-revamp/revamp                 — parsed resume + answers  → revamped resume + diff
+ *   POST /api/resume-revamp/compile-final          — final merged resume      → compiled PDF URL
+ *   POST /api/resume-revamp/apply-studio-feedback  — admin mentor: AI apply PDF threads → PDF + resolve
  */
 
 import { Router, Request, Response } from 'express';
@@ -24,6 +25,15 @@ import {
   applyAcceptedChanges,
   type BulletChange,
 } from '../lib/resumeRevampAI';
+import { authenticateFirebaseOrMentorAccess } from '../middlewares/auth.js';
+import { db, highlightsTable } from '@workspace/db';
+import { and, eq } from 'drizzle-orm';
+import {
+  buildResumeSchemaOutline,
+  extractActionItemsFromFeedback,
+  formatFeedbackThreads,
+  generateResumeFromActions,
+} from '../lib/studioApplyAI.js';
 
 const router = Router();
 const FALLBACK_PDF_NAME = '8e256776-bf9e-46e2-948c-6e072e22f307.pdf';
@@ -309,6 +319,152 @@ router.post('/compile-final', async (req: Request, res: Response) => {
     return res.status(500).json({ success: false, message: err.message || 'Failed to compile final resume.' });
   }
 });
+
+/**
+ * Admin mentor: summarize open PDF feedback → action items → merged resume JSON → compile PDF.
+ * Resolves all matching highlight rows for this document + onboarding.
+ */
+router.post(
+  '/apply-studio-feedback',
+  authenticateFirebaseOrMentorAccess,
+  async (req: Request, res: Response) => {
+    if (req.authMode !== 'mentor' || !req.mentorAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'Mentor access token required.',
+      });
+    }
+    const role = String(req.mentorAccess.payload.role ?? '').toLowerCase();
+    if (role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Admin reviewer role required.',
+      });
+    }
+
+    const { documentUrl, currentRevampedResume, onboardingId: bodyOnboardingId } =
+      req.body ?? {};
+    const tokenOid = req.mentorAccess.payload.onboardingId;
+    if (
+      typeof bodyOnboardingId === 'string' &&
+      bodyOnboardingId.trim() &&
+      bodyOnboardingId.trim() !== tokenOid
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: 'onboardingId does not match access token.',
+      });
+    }
+
+    if (!documentUrl || typeof documentUrl !== 'string' || !documentUrl.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'documentUrl is required.',
+      });
+    }
+    if (!currentRevampedResume || typeof currentRevampedResume !== 'object') {
+      return res.status(400).json({
+        success: false,
+        message: 'currentRevampedResume object is required.',
+      });
+    }
+
+    try {
+      const rows = await db
+        .select()
+        .from(highlightsTable)
+        .where(
+          and(
+            eq(highlightsTable.documentUrl, documentUrl.trim()),
+            eq(highlightsTable.onboardingId, tokenOid),
+            eq(highlightsTable.isResolved, false),
+          ),
+        );
+
+      if (rows.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'No open feedback threads to apply for this document.',
+        });
+      }
+
+      const digest = formatFeedbackThreads(
+        rows.map((r) => ({
+          id: r.id,
+          content: r.content as { text?: string },
+          comments: r.comments as unknown[],
+        })),
+      );
+      const schemaOutline = buildResumeSchemaOutline(currentRevampedResume);
+      const actionItems = await extractActionItemsFromFeedback(digest, schemaOutline);
+
+      if (actionItems.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message:
+            'Could not map feedback to resume fields. Try more specific notes.',
+        });
+      }
+
+      const mergedResume = await generateResumeFromActions(
+        currentRevampedResume,
+        actionItems,
+      );
+      const sanitized = sanitizeForCompiler(mergedResume);
+
+      const compilerBaseUrl = (process.env.RESUME_COMPILER_URL || 'http://localhost:5001').replace(
+        /\/$/,
+        '',
+      );
+      const compileRes = await fetch(`${compilerBaseUrl}/api/resume/compile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sanitized),
+      });
+
+      if (!compileRes.ok) {
+        const errBody = await compileRes.text();
+        throw new Error(
+          `ResumeCompiler returned ${compileRes.status}: ${errBody.slice(0, 300)}`,
+        );
+      }
+
+      const data = (await compileRes.json()) as { id: string; url: string };
+      const compiledPdfUrl = data.url?.startsWith('http')
+        ? data.url
+        : `${compilerBaseUrl}${data.url}`;
+
+      await db
+        .update(highlightsTable)
+        .set({ isResolved: true, updatedAt: new Date() })
+        .where(
+          and(
+            eq(highlightsTable.documentUrl, documentUrl.trim()),
+            eq(highlightsTable.onboardingId, tokenOid),
+            eq(highlightsTable.isResolved, false),
+          ),
+        );
+
+      const revampResult = {
+        revampedResume: mergedResume,
+        changes: [] as BulletChange[],
+        compiledPdfUrl,
+      };
+
+      return res.json({
+        success: true,
+        revampResult,
+        actionItems,
+      });
+    } catch (err: any) {
+      console.error('[resume-revamp/apply-studio-feedback]', err);
+      return res.status(500).json({
+        success: false,
+        message: err.message || 'Failed to apply studio feedback.',
+      });
+    }
+  },
+);
 
 // ─── GET /proxy-pdf ───────────────────────────────────────────────────────────
 // Proxies a PDF from an external URL through this server to avoid CORS issues.

@@ -152,6 +152,8 @@ interface PdfAnnotatorProps {
   focusSignal?: number;
   focusedInsightText?: string | null;
   annotation?: AnnotationAttribution | null;
+  /** Increment to refetch highlights from the API (e.g. after bulk resolve). */
+  highlightsRefreshSignal?: number;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -698,6 +700,7 @@ export function PdfAnnotator({
   focusSignal = 0,
   focusedInsightText,
   annotation = null,
+  highlightsRefreshSignal = 0,
 }: PdfAnnotatorProps) {
   const [numPages, setNumPages] = useState<number | null>(null);
   const [pageNumber, setPageNumber] = useState(1);
@@ -749,7 +752,7 @@ export function PdfAnnotator({
         }
       })
       .catch(() => {});
-  }, [documentId]);
+  }, [documentId, highlightsRefreshSignal]);
 
   const dismissPending = useCallback(() => {
     setPending(null);

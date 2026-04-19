@@ -368,6 +368,39 @@ router.post("/save-questionnaire", authenticateFirebaseToken, async (req: Reques
   }
 });
 
+/** Mentor admin: persist `revamp_result` after studio AI apply (wildcard token). */
+router.post("/save-revamp-result", authenticateFirebaseOrMentorAccess, async (req: Request, res: Response) => {
+  const { revampResult } = req.body ?? {};
+  if (!revampResult || typeof revampResult !== "object") {
+    return res.status(400).json({ success: false, message: "revampResult is required." });
+  }
+  try {
+    if (req.authMode === "mentor" && req.mentorAccess) {
+      const role = String(req.mentorAccess.payload.role ?? "").toLowerCase();
+      if (role !== "admin") {
+        return res.status(403).json({ success: false, message: "Admin reviewer role required." });
+      }
+      const oid = req.mentorAccess.payload.onboardingId;
+      const [submission] = await db
+        .update(onboardingSubmissionsTable)
+        .set({ revampResult, updatedAt: new Date() } as any)
+        .where(eq(onboardingSubmissionsTable.id, oid))
+        .returning();
+      if (!submission) {
+        return res.status(404).json({ success: false, message: "Submission not found." });
+      }
+      return res.json({ success: true, submission });
+    }
+    return res.status(403).json({
+      success: false,
+      message: "Mentor access required.",
+    });
+  } catch (err: any) {
+    console.error("[save-revamp-result]", err?.message);
+    return res.status(500).json({ success: false, message: err?.message ?? "Failed to save revamp result." });
+  }
+});
+
 /** Authenticated: onboarding row — `revealResume`, `inputStatus`, full payload. */
 async function handleGetMySubmission(req: Request, res: Response) {
   const authId = (req.user as { id: string }).id;

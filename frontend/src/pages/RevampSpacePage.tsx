@@ -36,6 +36,7 @@ export function RevampSpacePage() {
   const [parsedResume, setParsedResume] = useState<unknown>(null);
   const [revampResult, setRevampResult] = useState<RevampResult | null>(null);
   const [annotation, setAnnotation] = useState<RevampSpaceAnnotation | null>(null);
+  const [accessToken, setAccessToken] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -44,8 +45,10 @@ export function RevampSpacePage() {
       const mentorToken =
         typeof window !== "undefined" ? localStorage.getItem(LS_ACCESS_TOKEN)?.trim() : "";
       const token = mentorToken || firebaseToken?.trim() || "";
+      if (!cancelled) setAccessToken(token);
 
       if (!token) {
+        if (!cancelled) setAccessToken("");
         setPhase("auth");
         return;
       }
@@ -194,6 +197,8 @@ export function RevampSpacePage() {
           compiledPdfUrl={revampResult.compiledPdfUrl}
           apiBaseUrl={API_BASE_URL}
           annotation={pdfAnnotation}
+          authToken={accessToken}
+          onRevampResultApplied={setRevampResult}
         />
       </div>
     </RevampSpaceShell>
