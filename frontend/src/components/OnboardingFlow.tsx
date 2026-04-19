@@ -644,6 +644,14 @@ export function OnboardingFlow() {
   const revampSpaceOnlyRef = useRef(false);
   const [step, setStepInternal] = useState<OnboardingStep>(() => {
     if (typeof window !== "undefined") {
+      try {
+        const forceLogout = new URLSearchParams(window.location.search);
+        if (forceLogout.has("logout") || forceLogout.has("signout")) {
+          return "login";
+        }
+      } catch {
+        /* ignore */
+      }
       const path = window.location.pathname;
       const storedStep = localStorage.getItem(CURRENT_STEP_STORAGE_KEY);
       if (storedStep && STEPS.includes(storedStep as OnboardingStep)) {
@@ -1351,6 +1359,16 @@ export function OnboardingFlow() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    // Do not rewrite the URL while ?logout=1 / ?signout=1 is present — another effect
+    // would strip the query before onAuthStateChanged can sign out (IndexedDB session).
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      if (sp.has("logout") || sp.has("signout")) {
+        return;
+      }
+    } catch {
+      /* ignore */
+    }
     localStorage.setItem(CURRENT_STEP_STORAGE_KEY, step);
 
     if (step === "resumeRevamp") {
