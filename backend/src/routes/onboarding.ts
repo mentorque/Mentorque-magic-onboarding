@@ -174,6 +174,59 @@ function mapResumeSettingsFromRevamped(
   };
 }
 
+function buildResumeFromSetting(
+  setting: (typeof resumeSettingsTable.$inferSelect) | undefined,
+): Record<string, unknown> | null {
+  if (!setting) return null;
+  return {
+    personalInfo:
+      setting.personalInfo && typeof setting.personalInfo === "object"
+        ? setting.personalInfo
+        : {},
+    professionalSummary:
+      typeof setting.professionalSummary === "string"
+        ? setting.professionalSummary
+        : "",
+    education:
+      setting.education && typeof setting.education === "object"
+        ? setting.education
+        : [],
+    experience:
+      setting.experience && typeof setting.experience === "object"
+        ? setting.experience
+        : [],
+    skills:
+      setting.skills && typeof setting.skills === "object" ? setting.skills : [],
+    projects:
+      setting.projects && typeof setting.projects === "object"
+        ? setting.projects
+        : [],
+    customSections:
+      setting.customSections && typeof setting.customSections === "object"
+        ? setting.customSections
+        : [],
+    skillsDisplayMode:
+      typeof setting.skillsDisplayMode === "string" && setting.skillsDisplayMode.trim()
+        ? setting.skillsDisplayMode
+        : "twoColumnar",
+    skillsLineTime: setting.skillsLineTime ?? null,
+    sectionOrder:
+      Array.isArray(setting.sectionOrder) ? setting.sectionOrder : [],
+    sectionNames:
+      setting.sectionNames && typeof setting.sectionNames === "object"
+        ? setting.sectionNames
+        : {},
+    deletedSections:
+      Array.isArray(setting.deletedSections) ? setting.deletedSections : [],
+    resumeTemplate:
+      typeof setting.resumeTemplate === "number" ? setting.resumeTemplate : 1,
+    name:
+      typeof setting.name === "string" && setting.name.trim()
+        ? setting.name
+        : undefined,
+  };
+}
+
 router.post("/submissions", authenticateFirebaseToken, async (req: Request, res: Response) => {
   const {
     id,
@@ -202,18 +255,44 @@ router.post("/submissions", authenticateFirebaseToken, async (req: Request, res:
       basicDetails as Record<string, unknown>,
       workExperience as Record<string, unknown> | undefined,
     );
-    const [submission] = await db
-      .insert(onboardingSubmissionsTable)
-      .values({
-        ...(id ? { id } : {}),
-        userId,
-        basicDetails: mergedBasic,
-        preferencesTaken,
-        revealResume,
-        resumeSettingId,
-        inputStatus: ONBOARDING_INPUT_STATUS.INPUT_PENDING,
-      })
-      .returning();
+
+    const [existing] = await db
+      .select()
+      .from(onboardingSubmissionsTable)
+      .where(eq(onboardingSubmissionsTable.userId, userId))
+      .orderBy(desc(onboardingSubmissionsTable.updatedAt))
+      .limit(1);
+
+    let submission;
+    if (existing) {
+      [submission] = await db
+        .update(onboardingSubmissionsTable)
+        .set({
+          basicDetails: mergedBasic,
+          preferencesTaken,
+          revealResume,
+          ...(resumeSettingId !== undefined ? { resumeSettingId } : {}),
+          inputStatus:
+            normalizeInputStatus(existing.inputStatus) ??
+            ONBOARDING_INPUT_STATUS.INPUT_PENDING,
+          updatedAt: new Date(),
+        } as any)
+        .where(eq(onboardingSubmissionsTable.id, existing.id))
+        .returning();
+    } else {
+      [submission] = await db
+        .insert(onboardingSubmissionsTable)
+        .values({
+          ...(id ? { id } : {}),
+          userId,
+          basicDetails: mergedBasic,
+          preferencesTaken,
+          revealResume,
+          resumeSettingId,
+          inputStatus: ONBOARDING_INPUT_STATUS.INPUT_PENDING,
+        })
+        .returning();
+    }
 
     return res.json({ success: true, submission });
   } catch (err: any) {
@@ -393,6 +472,23 @@ router.post("/form-submission", authenticateFirebaseToken, async (req: Request, 
       .update(onboardingSubmissionsTable)
       .set({ parsedResume, aiQuestions, updatedAt: new Date() } as any)
       .where(eq(onboardingSubmissionsTable.id, result.submission.id));
+
+    if (result.resumeSettingId) {
+      const [setting] = await db
+        .select({ customSections: resumeSettingsTable.customSections })
+        .from(resumeSettingsTable)
+        .where(eq(resumeSettingsTable.id, result.resumeSettingId));
+      await db
+        .update(resumeSettingsTable)
+        .set(
+          mapResumeSettingsFromRevamped(
+            parsedResume,
+            setting?.customSections,
+            resumeDataPayload,
+          ) as any,
+        )
+        .where(eq(resumeSettingsTable.id, result.resumeSettingId));
+    }
 
     return res.json({
       success: true,
@@ -709,12 +805,15 @@ router.get("/revamp-space-data", authenticateFirebaseOrMentorAccess, async (req:
   try {
     if (req.authMode === "firebase" && req.user) {
       const authId = (req.user as { id: string }).id;
-      const [latest] = await db
+      const latestRows = await db
         .select()
         .from(onboardingSubmissionsTable)
         .where(eq(onboardingSubmissionsTable.userId, authId))
         .orderBy(desc(onboardingSubmissionsTable.updatedAt))
-        .limit(1);
+        .limit(10);
+      const latest =
+        latestRows.find((row) => row.revealResume === true) ??
+        latestRows[0];
       if (!latest) {
         return res.json({ success: true, submission: null });
       }
@@ -732,9 +831,33 @@ router.get("/revamp-space-data", authenticateFirebaseOrMentorAccess, async (req:
         (typeof u.fullName === "string" && u.fullName.trim()) ||
         (typeof u.email === "string" && u.email.trim()) ||
         "You";
+      let parsedResume = latest.parsedResume;
+      let revampResult = latest.revampResult as unknown;
+      if ((parsedResume == null || revampResult == null) && latest.resumeSettingId) {
+        const [setting] = await db
+          .select()
+          .from(resumeSettingsTable)
+          .where(eq(resumeSettingsTable.id, latest.resumeSettingId));
+        const resumeFromSetting = buildResumeFromSetting(setting);
+        if (resumeFromSetting) {
+          if (parsedResume == null) parsedResume = resumeFromSetting;
+          if (revampResult == null) {
+            revampResult = {
+              revampedResume: resumeFromSetting,
+              changes: [],
+              compiledPdfUrl: null,
+            };
+          }
+        }
+      }
+
       return res.json({
         success: true,
-        submission: latest,
+        submission: {
+          ...latest,
+          parsedResume,
+          revampResult,
+        },
         annotation: {
           displayName,
           role: "candidate",
@@ -753,9 +876,45 @@ router.get("/revamp-space-data", authenticateFirebaseOrMentorAccess, async (req:
       if (!submission) {
         return res.status(404).json({ success: false, message: "Submission not found." });
       }
+
+      let parsedResume = submission.parsedResume;
+      let revampResult = submission.revampResult as unknown;
+
+      if ((parsedResume == null || revampResult == null) && submission.resumeSettingId) {
+        const [setting] = await db
+          .select()
+          .from(resumeSettingsTable)
+          .where(eq(resumeSettingsTable.id, submission.resumeSettingId));
+        const resumeFromSetting = buildResumeFromSetting(setting);
+        if (resumeFromSetting) {
+          if (parsedResume == null) parsedResume = resumeFromSetting;
+          if (revampResult == null) {
+            revampResult = {
+              revampedResume: resumeFromSetting,
+              changes: [],
+              compiledPdfUrl: null,
+            };
+          }
+        }
+      }
+
+      // For wildcard/admin review, allow opening revamp-space even before questionnaire save.
+      // Build a minimal revamp payload so frontend can render instead of "unavailable".
+      if (parsedResume != null && revampResult == null) {
+        revampResult = {
+          revampedResume: parsedResume,
+          changes: [],
+          compiledPdfUrl: null,
+        };
+      }
+
       return res.json({
         success: true,
-        submission,
+        submission: {
+          ...submission,
+          parsedResume,
+          revampResult,
+        },
         annotation: {
           displayName: reviewer.name,
           role: payload.role,
