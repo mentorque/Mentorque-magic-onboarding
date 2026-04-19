@@ -11,6 +11,7 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+/** Default persistence uses IndexedDB + localStorage — clearing only cookies/sessionStorage may not sign the user out. */
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 

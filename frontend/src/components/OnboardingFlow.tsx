@@ -931,6 +931,28 @@ export function OnboardingFlow() {
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+      // Force a real logout (Firebase persists in IndexedDB — "Clear site data" can miss it).
+      // Use: https://yoursite/get-started?logout=1
+      if (typeof window !== "undefined") {
+        const sp = new URLSearchParams(window.location.search);
+        if (sp.has("logout") || sp.has("signout")) {
+          sp.delete("logout");
+          sp.delete("signout");
+          const qs = sp.toString();
+          const nextUrl =
+            window.location.pathname + (qs ? `?${qs}` : "") + window.location.hash;
+          try {
+            if (firebaseUser) await signOut(auth);
+          } catch {
+            /* ignore */
+          }
+          clearAuth();
+          setStep("login");
+          window.history.replaceState(null, "", nextUrl);
+          return;
+        }
+      }
+
       if (!firebaseUser) {
         clearAuth();
         return;
