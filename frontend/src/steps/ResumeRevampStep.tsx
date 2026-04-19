@@ -386,10 +386,10 @@ export function ResumeRevampStep({
           <MentorqueLoader size={160} />
           <div className="max-w-sm text-center space-y-2">
             <p className="text-base font-medium text-foreground">
-              Building your revamped resume…
+            AI is setting things up for you...
             </p>
             <p className="text-sm text-muted-foreground">
-              This usually takes a few seconds. Hang tight.
+            Please wait, you’ll be redirected shortly...
             </p>
           </div>
         </div>
