@@ -5,6 +5,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   varchar,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
@@ -49,32 +50,40 @@ export const resumeSettingsTable = pgTable("ResumeSettings", {
   isOnboardingResume: boolean("isOnboardingResume").notNull().default(false),
 });
 
-export const onboardingSubmissionsTable = pgTable("onboarding_submissions", {
-  id: varchar("id", { length: 50 })
-    .primaryKey()
-    .$defaultFn(() => generateCuid()),
-  userId: varchar("user_id", { length: 50 }).notNull(),
-  basicDetails: json("basic_details").notNull().default({}),
-  preferencesTaken: json("preferences_taken").notNull().default({}),
-  uploadedResumeText: text("uploaded_resume_text"),
-  revealResume: boolean("reveal_resume").notNull().default(false),
-  /** input_pending | input_complete | completed — see migration 002_onboarding_input_status.sql */
-  inputStatus: text("input_status").notNull().default("input_pending"),
-  resumeSettingId: varchar("resume_setting_id", { length: 50 }).references(
-    () => resumeSettingsTable.id,
-    { onDelete: "set null" },
-  ),
-  /** AI-structured resume JSON from parseResumeText() — generated at form-submission time */
-  parsedResume: json("parsed_resume"),
-  /** RevampQuestion[] enriched with work experience + preferences context */
-  aiQuestions: json("ai_questions"),
-  /** Record<questionId, answer> submitted by user after reviewing AI questions */
-  questionnaireAnswers: json("questionnaire_answers"),
-  /** { revampedResume, changes, compiledPdfUrl } stored after client-side revamp call */
-  revampResult: json("revamp_result"),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const onboardingSubmissionsTable = pgTable(
+  "onboarding_submissions",
+  {
+    id: varchar("id", { length: 50 })
+      .primaryKey()
+      .$defaultFn(() => generateCuid()),
+    userId: varchar("user_id", { length: 50 }).notNull(),
+    basicDetails: json("basic_details").notNull().default({}),
+    preferencesTaken: json("preferences_taken").notNull().default({}),
+    uploadedResumeText: text("uploaded_resume_text"),
+    revealResume: boolean("reveal_resume").notNull().default(false),
+    /** input_pending | input_complete | completed — see migration 002_onboarding_input_status.sql */
+    inputStatus: text("input_status").notNull().default("input_pending"),
+    resumeSettingId: varchar("resume_setting_id", { length: 50 }).references(
+      () => resumeSettingsTable.id,
+      { onDelete: "set null" },
+    ),
+    /** AI-structured resume JSON from parseResumeText() — generated at form-submission time */
+    parsedResume: json("parsed_resume"),
+    /** RevampQuestion[] enriched with work experience + preferences context */
+    aiQuestions: json("ai_questions"),
+    /** Record<questionId, answer> submitted by user after reviewing AI questions */
+    questionnaireAnswers: json("questionnaire_answers"),
+    /** { revampedResume, changes, compiledPdfUrl } stored after client-side revamp call */
+    revampResult: json("revamp_result"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    oneSubmissionPerUser: uniqueIndex("onboarding_submissions_user_id_unique").on(
+      table.userId,
+    ),
+  }),
+);
 
 export const resumeReviewersTable = pgTable("resume_reviewers", {
   id: varchar("id", { length: 50 })

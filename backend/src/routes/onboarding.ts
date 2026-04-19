@@ -290,6 +290,17 @@ router.post("/submissions", authenticateFirebaseToken, async (req: Request, res:
           revealResume,
           resumeSettingId,
           inputStatus: ONBOARDING_INPUT_STATUS.INPUT_PENDING,
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: onboardingSubmissionsTable.userId,
+          set: {
+            basicDetails: mergedBasic,
+            preferencesTaken,
+            revealResume,
+            ...(resumeSettingId !== undefined ? { resumeSettingId } : {}),
+            updatedAt: new Date(),
+          } as any,
         })
         .returning();
     }
@@ -442,6 +453,19 @@ router.post("/form-submission", authenticateFirebaseToken, async (req: Request, 
           revealResume,
           resumeSettingId: createdSetting.id,
           inputStatus: ONBOARDING_INPUT_STATUS.INPUT_COMPLETE,
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: onboardingSubmissionsTable.userId,
+          set: {
+            basicDetails: mergedBasic,
+            uploadedResumeText: rawResumeText,
+            preferencesTaken,
+            revealResume,
+            resumeSettingId: createdSetting.id,
+            inputStatus: ONBOARDING_INPUT_STATUS.INPUT_COMPLETE,
+            updatedAt: new Date(),
+          } as any,
         })
         .returning();
 
