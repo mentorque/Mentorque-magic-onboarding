@@ -72,6 +72,8 @@ interface ComparisonViewProps {
   authToken?: string;
   /** Called when admin "Make Changes" produces a new revamp payload + PDF. */
   onRevampResultApplied?: (next: RevampResult) => void;
+  /** Optional token used for privileged compiler-link checks. */
+  compilerAuthToken?: string;
 }
 
 interface StudioThreadItem {
@@ -1155,6 +1157,7 @@ export function ComparisonView({
   annotation = null,
   authToken = "",
   onRevampResultApplied,
+  compilerAuthToken = "",
 }: ComparisonViewProps) {
   const [activeTab, setActiveTab] = useState<"analysis" | "studio">("analysis");
   const [studioThreads, setStudioThreads] = useState<StudioThreadItem[]>([]);
@@ -1165,6 +1168,7 @@ export function ComparisonView({
   const [studioReplyPosting, setStudioReplyPosting] = useState(false);
   const [studioApplyBusy, setStudioApplyBusy] = useState(false);
   const [studioApplyError, setStudioApplyError] = useState<string | null>(null);
+  const [compilerEditUrl, setCompilerEditUrl] = useState<string | null>(null);
   const [highlightsRefreshTick, setHighlightsRefreshTick] = useState(0);
   const [focusHighlightId, setFocusHighlightId] = useState<string | null>(null);
   const [focusSignal, setFocusSignal] = useState(0);
@@ -1253,6 +1257,39 @@ export function ComparisonView({
     const interval = setInterval(loadStudioThreads, 5000);
     return () => clearInterval(interval);
   }, [loadStudioThreads]);
+
+  useEffect(() => {
+    const token = (compilerAuthToken || authToken || "").trim();
+    if (!isAdminAnnotator || !token) {
+      setCompilerEditUrl(null);
+      return;
+    }
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const q = new URLSearchParams();
+        if (annotation?.onboardingId) q.set("submissionId", annotation.onboardingId);
+        const path = q.toString()
+          ? `/api/onboarding/compiler-edit-link?${q.toString()}`
+          : "/api/onboarding/compiler-edit-link";
+        const res = await fetch(withApiBase(path), {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = (await res.json()) as { success?: boolean; url?: string };
+        if (!cancelled && res.ok && data.success && typeof data.url === "string") {
+          setCompilerEditUrl(data.url);
+          return;
+        }
+      } catch {
+        // noop
+      }
+      if (!cancelled) setCompilerEditUrl(null);
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdminAnnotator, authToken, compilerAuthToken, annotation?.onboardingId]);
 
   const submitStudioReply = async (thread: StudioThreadItem) => {
     const text = studioReplyDraft.trim();
@@ -1628,23 +1665,36 @@ export function ComparisonView({
 
                 {isAdminAnnotator && (
                   <div className="mb-5 space-y-2">
-                    <button
-                      type="button"
-                      onClick={() => void applyMakeChangesFromStudio()}
-                      disabled={
-                        studioApplyBusy ||
-                        activeStudioThreads.length === 0 ||
-                        !authToken?.trim()
-                      }
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-400/35 bg-emerald-500/15 px-4 py-3 text-xs font-black uppercase tracking-[0.2em] text-emerald-100 shadow-[0_0_24px_rgba(16,185,129,0.12)] transition-all hover:bg-emerald-500/25 disabled:pointer-events-none disabled:opacity-40"
-                    >
-                      {studioApplyBusy ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Sparkles className="h-4 w-4" />
+                    <div className="flex w-full flex-col gap-2 sm:flex-row">
+                      <button
+                        type="button"
+                        onClick={() => void applyMakeChangesFromStudio()}
+                        disabled={
+                          studioApplyBusy ||
+                          activeStudioThreads.length === 0 ||
+                          !authToken?.trim()
+                        }
+                        className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border border-emerald-400/35 bg-emerald-500/15 px-4 py-3 text-xs font-black uppercase tracking-[0.2em] text-emerald-100 shadow-[0_0_24px_rgba(16,185,129,0.12)] transition-all hover:bg-emerald-500/25 disabled:pointer-events-none disabled:opacity-40"
+                      >
+                        {studioApplyBusy ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-4 w-4" />
+                        )}
+                        Make Changes
+                      </button>
+                      {compilerEditUrl && (
+                        <a
+                          href={compilerEditUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-cyan-400/35 bg-cyan-500/15 px-4 py-3 text-xs font-black uppercase tracking-[0.2em] text-cyan-100 shadow-[0_0_24px_rgba(6,182,212,0.12)] transition-all hover:bg-cyan-500/25"
+                        >
+                          <ArrowUpRight className="h-4 w-4" />
+                          Edit in Resume Compiler
+                        </a>
                       )}
-                      Make Changes
-                    </button>
+                    </div>
                     {studioApplyError && (
                       <p className="text-xs text-red-300/95 leading-relaxed">
                         {studioApplyError}

@@ -105,6 +105,75 @@ function newOnboardingResumeSettingsRow(params: {
   };
 }
 
+function mapResumeSettingsFromRevamped(
+  revampedResume: unknown,
+  existingCustomSections: unknown,
+  onboardingSnapshot: OnboardingResumeSnapshot,
+): Partial<typeof resumeSettingsTable.$inferInsert> {
+  if (
+    !revampedResume ||
+    typeof revampedResume !== "object" ||
+    Array.isArray(revampedResume)
+  ) {
+    return {
+      customSections: mergeCustomWithMentorqueSnapshot(
+        existingCustomSections,
+        onboardingSnapshot,
+      ),
+    };
+  }
+
+  const resume = revampedResume as Record<string, unknown>;
+  const personalInfo = (resume.personalInfo ?? {}) as Record<string, unknown>;
+  const firstName =
+    typeof personalInfo.firstName === "string"
+      ? personalInfo.firstName.trim()
+      : "";
+  const fallbackName = firstName
+    ? `Onboarding — ${firstName}`
+    : "Onboarding resume";
+
+  return {
+    name:
+      typeof resume.name === "string" && resume.name.trim()
+        ? resume.name.trim()
+        : fallbackName,
+    personalInfo,
+    professionalSummary:
+      typeof resume.professionalSummary === "string"
+        ? resume.professionalSummary
+        : null,
+    education: (resume.education ?? {}) as unknown,
+    experience: (resume.experience ?? {}) as unknown,
+    skills: (resume.skills ?? {}) as unknown,
+    projects: (resume.projects ?? {}) as unknown,
+    skillsDisplayMode:
+      typeof resume.skillsDisplayMode === "string" &&
+      resume.skillsDisplayMode.trim()
+        ? resume.skillsDisplayMode.trim()
+        : "twoColumnar",
+    skillsLineTime: (resume.skillsLineTime ?? null) as unknown,
+    sectionOrder: Array.isArray(resume.sectionOrder) ? resume.sectionOrder : [],
+    sectionNames:
+      resume.sectionNames && typeof resume.sectionNames === "object"
+        ? (resume.sectionNames as unknown)
+        : {},
+    deletedSections: Array.isArray(resume.deletedSections)
+      ? resume.deletedSections
+      : null,
+    resumeTemplate:
+      typeof resume.resumeTemplate === "number" && Number.isFinite(resume.resumeTemplate)
+        ? Math.trunc(resume.resumeTemplate)
+        : 1,
+    customSections: mergeCustomWithMentorqueSnapshot(
+      existingCustomSections,
+      onboardingSnapshot,
+    ),
+    isOnboardingResume: true,
+    updatedAt: new Date(),
+  };
+}
+
 router.post("/submissions", authenticateFirebaseToken, async (req: Request, res: Response) => {
   const {
     id,
@@ -200,16 +269,31 @@ router.post("/form-submission", authenticateFirebaseToken, async (req: Request, 
 
   try {
     const result = await db.transaction(async (tx: Parameters<Parameters<typeof db.transaction>[0]>[0]) => {
+      let targetSubmission:
+        | (typeof onboardingSubmissionsTable.$inferSelect)
+        | undefined;
+
       if (submissionId && typeof submissionId === "string") {
-        const [existing] = await tx
+        const [existingById] = await tx
           .select()
           .from(onboardingSubmissionsTable)
           .where(eq(onboardingSubmissionsTable.id, submissionId));
-        if (!existing || existing.userId !== authId) {
+        if (!existingById || existingById.userId !== authId) {
           throw new Error("FORBIDDEN");
         }
+        targetSubmission = existingById;
+      } else {
+        const [latestByUser] = await tx
+          .select()
+          .from(onboardingSubmissionsTable)
+          .where(eq(onboardingSubmissionsTable.userId, authId))
+          .orderBy(desc(onboardingSubmissionsTable.updatedAt))
+          .limit(1);
+        targetSubmission = latestByUser;
+      }
 
-        let resumeSettingId = existing.resumeSettingId;
+      if (targetSubmission) {
+        let resumeSettingId = targetSubmission.resumeSettingId;
 
         if (resumeSettingId) {
           const [existingSetting] = await tx
@@ -252,7 +336,7 @@ router.post("/form-submission", authenticateFirebaseToken, async (req: Request, 
             inputStatus: ONBOARDING_INPUT_STATUS.INPUT_COMPLETE,
             updatedAt: new Date(),
           })
-          .where(eq(onboardingSubmissionsTable.id, submissionId))
+          .where(eq(onboardingSubmissionsTable.id, targetSubmission.id))
           .returning();
 
         return { submission, resumeSettingId };
@@ -347,7 +431,7 @@ router.post("/save-questionnaire", authenticateFirebaseToken, async (req: Reques
 
   try {
     const [existing] = await db
-      .select({ id: onboardingSubmissionsTable.id, userId: onboardingSubmissionsTable.userId })
+      .select()
       .from(onboardingSubmissionsTable)
       .where(eq(onboardingSubmissionsTable.id, submissionId));
 
@@ -355,11 +439,70 @@ router.post("/save-questionnaire", authenticateFirebaseToken, async (req: Reques
       return res.status(403).json({ success: false, message: "Forbidden or submission not found." });
     }
 
-    const [submission] = await db
-      .update(onboardingSubmissionsTable)
-      .set({ questionnaireAnswers: answers, revampResult, updatedAt: new Date() } as any)
-      .where(eq(onboardingSubmissionsTable.id, submissionId))
-      .returning();
+    const onboardingSnapshot: OnboardingResumeSnapshot = {
+      source: "onboarding",
+      basicDetails:
+        existing.basicDetails && typeof existing.basicDetails === "object"
+          ? (existing.basicDetails as Record<string, unknown>)
+          : {},
+      preferencesTaken: existing.preferencesTaken,
+      uploadedResumeText:
+        typeof existing.uploadedResumeText === "string"
+          ? existing.uploadedResumeText
+          : null,
+    };
+
+    const [submission] = await db.transaction(
+      async (tx: Parameters<Parameters<typeof db.transaction>[0]>[0]) => {
+        let resumeSettingId = existing.resumeSettingId;
+
+        if (resumeSettingId) {
+          const [setting] = await tx
+            .select({ customSections: resumeSettingsTable.customSections })
+            .from(resumeSettingsTable)
+            .where(eq(resumeSettingsTable.id, resumeSettingId));
+          await tx
+            .update(resumeSettingsTable)
+            .set(
+              mapResumeSettingsFromRevamped(
+                (revampResult as { revampedResume?: unknown }).revampedResume,
+                setting?.customSections,
+                onboardingSnapshot,
+              ) as any,
+            )
+            .where(eq(resumeSettingsTable.id, resumeSettingId));
+        } else {
+          const [created] = await tx
+            .insert(resumeSettingsTable)
+            .values({
+              ...newOnboardingResumeSettingsRow({
+                userId: authId,
+                name: "Onboarding resume",
+                snapshot: onboardingSnapshot,
+              }),
+              ...mapResumeSettingsFromRevamped(
+                (revampResult as { revampedResume?: unknown }).revampedResume,
+                null,
+                onboardingSnapshot,
+              ),
+            } as any)
+            .returning();
+          resumeSettingId = created.id;
+        }
+
+        const [updatedSubmission] = await tx
+          .update(onboardingSubmissionsTable)
+          .set({
+            questionnaireAnswers: answers,
+            revampResult,
+            resumeSettingId,
+            updatedAt: new Date(),
+          } as any)
+          .where(eq(onboardingSubmissionsTable.id, submissionId))
+          .returning();
+        return [updatedSubmission];
+      },
+    );
 
     return res.json({ success: true, submission });
   } catch (err: any) {
@@ -381,11 +524,72 @@ router.post("/save-revamp-result", authenticateFirebaseOrMentorAccess, async (re
         return res.status(403).json({ success: false, message: "Admin reviewer role required." });
       }
       const oid = req.mentorAccess.payload.onboardingId;
-      const [submission] = await db
-        .update(onboardingSubmissionsTable)
-        .set({ revampResult, updatedAt: new Date() } as any)
-        .where(eq(onboardingSubmissionsTable.id, oid))
-        .returning();
+      const [existing] = await db
+        .select()
+        .from(onboardingSubmissionsTable)
+        .where(eq(onboardingSubmissionsTable.id, oid));
+      if (!existing) {
+        return res.status(404).json({ success: false, message: "Submission not found." });
+      }
+
+      const onboardingSnapshot: OnboardingResumeSnapshot = {
+        source: "onboarding",
+        basicDetails:
+          existing.basicDetails && typeof existing.basicDetails === "object"
+            ? (existing.basicDetails as Record<string, unknown>)
+            : {},
+        preferencesTaken: existing.preferencesTaken,
+        uploadedResumeText:
+          typeof existing.uploadedResumeText === "string"
+            ? existing.uploadedResumeText
+            : null,
+      };
+
+      const [submission] = await db.transaction(
+        async (tx: Parameters<Parameters<typeof db.transaction>[0]>[0]) => {
+          let resumeSettingId = existing.resumeSettingId;
+          if (resumeSettingId) {
+            const [setting] = await tx
+              .select({ customSections: resumeSettingsTable.customSections })
+              .from(resumeSettingsTable)
+              .where(eq(resumeSettingsTable.id, resumeSettingId));
+            await tx
+              .update(resumeSettingsTable)
+              .set(
+                mapResumeSettingsFromRevamped(
+                  (revampResult as { revampedResume?: unknown }).revampedResume,
+                  setting?.customSections,
+                  onboardingSnapshot,
+                ) as any,
+              )
+              .where(eq(resumeSettingsTable.id, resumeSettingId));
+          } else {
+            const [created] = await tx
+              .insert(resumeSettingsTable)
+              .values({
+                ...newOnboardingResumeSettingsRow({
+                  userId: existing.userId,
+                  name: "Onboarding resume",
+                  snapshot: onboardingSnapshot,
+                }),
+                ...mapResumeSettingsFromRevamped(
+                  (revampResult as { revampedResume?: unknown }).revampedResume,
+                  null,
+                  onboardingSnapshot,
+                ),
+              } as any)
+              .returning();
+            resumeSettingId = created.id;
+          }
+
+          const [updatedSubmission] = await tx
+            .update(onboardingSubmissionsTable)
+            .set({ revampResult, resumeSettingId, updatedAt: new Date() } as any)
+            .where(eq(onboardingSubmissionsTable.id, oid))
+            .returning();
+          return [updatedSubmission];
+        },
+      );
       if (!submission) {
         return res.status(404).json({ success: false, message: "Submission not found." });
       }
@@ -400,6 +604,63 @@ router.post("/save-revamp-result", authenticateFirebaseOrMentorAccess, async (re
     return res.status(500).json({ success: false, message: err?.message ?? "Failed to save revamp result." });
   }
 });
+
+router.get(
+  "/compiler-edit-link",
+  authenticateFirebaseOrMentorAccess,
+  async (req: Request, res: Response) => {
+    try {
+      let submissionId: string | null = null;
+      const requestedSubmissionId =
+        typeof req.query.submissionId === "string" && req.query.submissionId.trim()
+          ? req.query.submissionId.trim()
+          : null;
+      if (req.authMode === "mentor" && req.mentorAccess) {
+        const role = String(req.mentorAccess.payload.role ?? "").toLowerCase();
+        if (role !== "admin") {
+          return res.status(403).json({ success: false, message: "Admin reviewer role required." });
+        }
+        submissionId = requestedSubmissionId ?? req.mentorAccess.payload.onboardingId;
+      } else if (req.authMode === "firebase" && req.user) {
+        if (requestedSubmissionId) {
+          submissionId = requestedSubmissionId;
+        } else {
+          const authId = (req.user as { id: string }).id;
+          const [latest] = await db
+            .select({ id: onboardingSubmissionsTable.id })
+            .from(onboardingSubmissionsTable)
+            .where(eq(onboardingSubmissionsTable.userId, authId))
+            .orderBy(desc(onboardingSubmissionsTable.updatedAt))
+            .limit(1);
+          submissionId = latest?.id ?? null;
+        }
+      }
+
+      if (!submissionId) {
+        return res.status(404).json({ success: false, message: "Submission not found." });
+      }
+
+      const [submission] = await db
+        .select({ resumeSettingId: onboardingSubmissionsTable.resumeSettingId })
+        .from(onboardingSubmissionsTable)
+        .where(eq(onboardingSubmissionsTable.id, submissionId));
+      if (!submission?.resumeSettingId) {
+        return res.status(404).json({
+          success: false,
+          message: "No linked resume setting found for this submission.",
+        });
+      }
+
+      return res.json({
+        success: true,
+        resumeSettingId: submission.resumeSettingId,
+        url: `https://tools.mentorquedu.com/?resumeId=${encodeURIComponent(submission.resumeSettingId)}`,
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  },
+);
 
 /** Authenticated: onboarding row — `revealResume`, `inputStatus`, full payload. */
 async function handleGetMySubmission(req: Request, res: Response) {
@@ -750,7 +1011,7 @@ router.patch("/admin/:token/submissions/:submissionId/reveal", async (req: Reque
 
 router.post("/admin/:token/mentor-links", async (req: Request, res: Response) => {
   const token = req.params.token as string;
-  const { onboardingId, name, role } = req.body ?? {};
+  const { onboardingId, name, role, userId } = req.body ?? {};
   if (token !== ADMIN_ACCESS_TOKEN) {
     return res.status(403).json({ success: false, message: "Invalid admin token." });
   }
@@ -772,6 +1033,7 @@ router.post("/admin/:token/mentor-links", async (req: Request, res: Response) =>
         onboardingId,
         name,
         role: normalizedRole,
+        userId: typeof userId === "string" && userId.trim() ? userId.trim() : null,
         inviteToken: randomToken("acc"),
       })
       .returning();
@@ -818,6 +1080,7 @@ router.post("/mentor/claim", async (req: Request, res: Response) => {
       onboardingId: reviewer.onboardingId,
       role: claimedRole,
       reviewerId: reviewer.id,
+      userId: reviewer.userId ?? undefined,
     });
 
     return res.json({
@@ -828,6 +1091,7 @@ router.post("/mentor/claim", async (req: Request, res: Response) => {
         onboardingId: reviewer.onboardingId,
         role: claimedRole,
         reviewerId: reviewer.id,
+        userId: reviewer.userId ?? undefined,
         name: reviewer.name,
       },
     });
