@@ -24,12 +24,15 @@ export interface RevampQuestion {
   id: string;
   question: string;
   hint: string;
-  /** Question input type — 'text' for free-form, 'mcq' for multiple choice */
-  questionType: 'text' | 'mcq';
-  /** Options for MCQ questions */
+  /**
+   * `text` — free-form answer.
+   * `mcq_multi` — pick **all** that apply; options shown as multi-select. Legacy `mcq` is treated as multi-select in the UI.
+   */
+  questionType: 'text' | 'mcq' | 'mcq_multi';
+  /** Options for MCQ / multi-select; **last option should be exactly `Other`** when choices need a catch‑all */
   options?: string[];
   /** Which section of the resume this question targets (informational) */
-  section: 'experience' | 'skills' | 'summary' | 'general' | 'transition';
+  section: 'experience' | 'skills' | 'summary' | 'general' | 'transition' | 'achievements';
 }
 
 export type ChangeSection = 'experience' | 'projects' | 'summary' | 'skills';
@@ -108,6 +111,26 @@ export interface QuestionGenerationContext {
 
 // ─── 1. Question generation ───────────────────────────────────────────────────
 
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+/** Pull bullets that contain a measurable stat (%, $, x multiplier, or a bare number) */
+function extractStatBullets(experience: any[]): { bullet: string; company: string; role: string }[] {
+  const statPattern = /(\d+\s*%|[\$£€]\s*\d+|\d+x|\d+X|\b\d{2,}\b)/;
+  const hits: { bullet: string; company: string; role: string }[] = [];
+
+  for (const exp of (experience || []).slice(0, 2)) {
+    for (const bullet of (exp.highlights || [])) {
+      if (statPattern.test(bullet)) {
+        hits.push({ bullet, company: exp.company ?? '', role: exp.position ?? '' });
+        if (hits.length >= 4) return hits; // cap early
+      }
+    }
+  }
+  return hits;
+}
+
+// ── main function ─────────────────────────────────────────────────────────────
+
 export async function generateQuestionsFromResume(
   parsedResume: any,
   context?: QuestionGenerationContext,
@@ -116,126 +139,129 @@ export async function generateQuestionsFromResume(
 
   const { workExperience = {}, preferences = {} } = context ?? {};
 
-  // Detect whether this is a career pivot or same-track progression
-  const currentRole = parsedResume.experience?.[0]?.position ?? workExperience.jobTitle ?? '';
-  const targetRole  = preferences.targetRole ?? '';
-  const isPivot     = targetRole && currentRole &&
-    !targetRole.toLowerCase().includes(currentRole.toLowerCase().split(' ')[0]);
+  const latestExp    = parsedResume.experience?.[0];
+  const latestRole   = latestExp?.position ?? workExperience.jobTitle ?? '';
+  const latestCompany = latestExp?.company ?? workExperience.company ?? '';
+  const anchorBullet = latestExp?.highlights?.[0] ?? '';
+  const targetRole   = preferences.targetRole ?? '';
+  const isPivot      =
+    targetRole &&
+    latestRole &&
+    !targetRole.toLowerCase().includes(latestRole.toLowerCase().split(' ')[0]);
 
-  // Build a compact resume summary (avoid blowing token budget)
-  const resumeSummary = {
-    name: `${parsedResume.personalInfo?.firstName || ''} ${parsedResume.personalInfo?.lastName || ''}`.trim(),
-    currentTitle: currentRole,
-    previousRoles: (parsedResume.experience || []).slice(1, 4).map(
-      (e: any) => `${e.position} @ ${e.company} (${e.startDate ?? ''}–${e.endDate ?? ''})`,
-    ),
-    summary: parsedResume.professionalSummary?.slice(0, 300),
-    skills: (parsedResume.skills || []).slice(0, 20),
-    projects: (parsedResume.projects || []).map((p: any) => p.name),
-    educationInstitutions: (parsedResume.education || []).map((e: any) => e.institution),
-    // Surface top 3 experience bullets so the AI can spot gaps precisely
-    sampleBullets: (parsedResume.experience || []).slice(0, 2).flatMap(
-      (e: any) => (e.highlights || []).slice(0, 3),
-    ),
+  // Pull up to 4 bullets that already contain a measurable stat
+  const statBullets = extractStatBullets(parsedResume.experience || []);
+  // Pick the 2 best ones for the "business impact translation" questions
+  const impactTargets = statBullets.slice(0, 2);
+
+  const snapshot = {
+    latestRole,
+    latestCompany,
+    anchorBullet,
+    statBulletsFound: statBullets.map(b => `"${b.bullet}" (${b.role} @ ${b.company})`),
+    previousRoles: (parsedResume.experience || [])
+      .slice(1, 3)
+      .map((e: any) => `${e.position} @ ${e.company}`),
+    skills: (parsedResume.skills || []).slice(0, 15),
+    projects: (parsedResume.projects || []).map((p: any) => p.name).slice(0, 4),
+    education: (parsedResume.education || []).map((e: any) => e.institution),
+    hasCertifications: (parsedResume.certifications || []).length > 0,
+    certifications: (parsedResume.certifications || []).map((c: any) => c.name).slice(0, 3),
+    targetRole,
   };
 
-  // Build context block — what we ALREADY KNOW (so AI doesn't ask again)
-  const knownContext: string[] = [];
-  if (preferences.targetRole)    knownContext.push(`Target role: ${preferences.targetRole}`);
-  if (preferences.seniority)     knownContext.push(`Target seniority: ${preferences.seniority}`);
-  if (preferences.country)       knownContext.push(`Target country/market: ${preferences.country}`);
-  if (preferences.workStyle)     knownContext.push(`Preferred work style: ${preferences.workStyle}`);
-  if (workExperience.company)    knownContext.push(`Current/most recent company: ${workExperience.company}`);
-  if (workExperience.jobTitle)   knownContext.push(`Current job title: ${workExperience.jobTitle}`);
-  if (workExperience.yearsExp)   knownContext.push(`Years of experience: ${workExperience.yearsExp}`);
-  if (workExperience.teamSize)   knownContext.push(`Team size managed/worked in: ${workExperience.teamSize}`);
-  if (workExperience.impact)     knownContext.push(`Self-reported key impact: ${workExperience.impact}`);
-  if (workExperience.revenueImpact) knownContext.push(`Revenue/cost impact mentioned: ${workExperience.revenueImpact}`);
-  if (workExperience.topStat)    knownContext.push(`Top achievement stat: ${workExperience.topStat}`);
+  const known: string[] = [];
+  if (preferences.targetRole)       known.push(`Target role: ${preferences.targetRole}`);
+  if (preferences.seniority)        known.push(`Target seniority: ${preferences.seniority}`);
+  if (preferences.country)          known.push(`Target country: ${preferences.country}`);
+  if (workExperience.yearsExp)      known.push(`Years of experience: ${workExperience.yearsExp}`);
+  if (workExperience.teamSize)      known.push(`Team size: ${workExperience.teamSize}`);
+  if (workExperience.revenueImpact) known.push(`Revenue impact: ${workExperience.revenueImpact}`);
 
-  const knownContextBlock = knownContext.length
-    ? `━━━ WHAT WE ALREADY KNOW (DO NOT ASK ABOUT THESE AGAIN) ━━━\n${knownContext.join('\n')}`
+  const knownBlock = known.length
+    ? `DO NOT ask about any of the following — we already have this:\n${known.join('\n')}`
     : '';
 
-  const pivotInstructions = isPivot
-    ? `
-━━━ CAREER PIVOT DETECTED ━━━
-This candidate is moving from "${currentRole}" into "${targetRole}" — a meaningful role change.
-You MUST include exactly 2 questions in the "transition" section that:
-  (a) Uncover specific transferable skills, experiences, or domain knowledge from their background that are directly relevant to "${targetRole}" — ask them to connect the dots explicitly.
-  (b) Capture what they are seeking in "${targetRole}" that their previous path didn't offer — motivations, new problems they want to solve, skills they want to build. This should be forward-looking and aspirational, NOT anchored to past experience.
-These 2 questions must feel natural and encouraging, not interrogative.`
-    : `
-━━━ SAME-TRACK PROGRESSION ━━━
-The candidate is progressing within the same function (${currentRole} → ${targetRole}).
-Include 1 "transition" question that captures what specifically draws them to this next level — what problems they want to own that they haven't fully owned before.`;
+  // Build the two stat-translation question specs inline so the AI just fills them in
+  const statQuestionSpecs = impactTargets.length > 0
+    ? impactTargets.map(({ bullet, company, role }, i) =>
+        `[STAT IMPACT ${i + 1}] They wrote: "${bullet}" (${role} @ ${company}). In a warm, curious tone (not an audit), ask what that number meant for the business — revenue, cost, growth, churn, etc. One sentence; quote their exact stat so they feel seen.`,
+      ).join('\n\n')
+    : `[STAT IMPACT 1] Warmly ask what the most significant metric in their latest role at ${latestCompany} meant for the company in human terms.
+[STAT IMPACT 2] Warmly ask about a second result they drove — what mattered downstream?`;
 
-  const prompt = `You are a world-class career coach at Mentorque, a professional mentorship platform.
+  /** Domain depth + target role: pivot vs aligned vs unknown target */
+  const domainAndTargetSlot = (() => {
+    const tr = targetRole.trim();
+    if (!tr) {
+      return `[DOMAIN EXPERIENCE] Ask one warm, readable question about where their **domain** experience runs deepest — the problem space, users, or technical slice they truly understand (you can lightly reference "${latestRole || 'their work'}" if it helps). Not jargon for jargon's sake. questionType "text".`;
+    }
+    if (isPivot) {
+      return `[DOMAIN & WHY THIS TARGET] They chose target role "${tr}" while their recent focus is "${latestRole || 'their background'}". Ask **one** kind question that blends: (a) what draws them toward "${tr}", and (b) what from their **domain** experience they want to bring forward — or what they're honest about learning next. Curious, never skeptical. questionType "text".`;
+    }
+    return `[DOMAIN CRAFT & TARGET] Their target "${tr}" fits their path from "${latestRole || 'their experience'}". Ask one warm question about the **substance** of their domain experience — what they've really learned to do well in that world (systems, judgment, context) that should show up on the resume. questionType "text".`;
+  })();
 
-Your task: Generate between 7 and 10 laser-focused questions that extract the MISSING information needed to write a truly differentiated, metrics-rich resume for this candidate. A senior resume expert will use these answers to craft every bullet and the summary from scratch.
+  const mentorVoice = `VOICE (apply to every question and hint):
+You are a warm, encouraging career mentor at Mentorque helping this candidate put their best foot forward.
+Sound like a trusted senior colleague who read their resume carefully and genuinely wants them to shine — curious, never cold.
+Never interrogate. Questions should not beat around the bush or shouldn't be hard to read & understand, optimal length and nice. Never audit. Human, conversational — one or two sentences per question.`;
 
-${knownContextBlock}
+  const prompt = `${mentorVoice}
 
-━━━ CANDIDATE RESUME SUMMARY ━━━
-${JSON.stringify(resumeSummary, null, 2)}
-${pivotInstructions}
+Generate 8–10 questions to enrich this candidate's resume for Mentorque.
 
-━━━ MANDATORY QUESTION COVERAGE ━━━
-You MUST generate questions that collectively cover ALL of the following areas. Each question should belong to exactly one area — do not double up on an area unless you have remaining question slots.
+${knownBlock}
 
-[AREA 1 — TEAM & ORGANISATIONAL SCOPE] (section: "experience")
-Ask about team size managed or closely collaborated with, reporting structure, and the scale of the organisation they operated in (startup / scale-up / enterprise). Reference their actual companies by name.
+━━━ CANDIDATE SNAPSHOT ━━━
+${JSON.stringify(snapshot, null, 2)}
 
-[AREA 2 — REVENUE, COST & BUSINESS OUTCOMES] (section: "experience")
-Ask for the single most impactful business outcome they drove — revenue generated or protected, costs reduced, efficiency gains, or customer/user growth. Push for a concrete number or range. Reference a specific role or project from their resume.
+━━━ QUESTION SLOTS — cover all of these in order ━━━
 
-[AREA 3 — PROBLEM STATEMENT & BUSINESS CONTEXT] (section: "experience")
-Ask them to describe the core business problem or challenge they were hired/assigned to solve in their most significant role. What was broken, missing, or at risk before they stepped in? This gives the "by doing [Z]" part of the XYZ formula.
+${statQuestionSpecs}
 
-[AREA 4 — TOOLS, TECHNOLOGIES & AI PROFICIENCY] (section: "skills")
-Ask about the specific tools, platforms, and technologies — including any AI/LLM tools — they use day-to-day that are NOT listed on the resume, or that are listed but used in a way that deserves elaboration. Make the question specific to their domain (e.g. don't ask a designer about DevOps tools).
+[TEAM SIZE] Ask in a friendly way how many people were on their team or they managed at ${latestCompany}. But it should not be like you are just asking Team size. It should be about understanding candidate's experience and context.
 
-[AREA 5 — SECTORS & DOMAIN EXPERTISE] (section: "skills")
-Ask which industries, verticals, or problem domains they have the deepest expertise in, and which they are most excited to continue working in. Offer MCQ options tailored to their background.
+[TOOLS & TECH] Ask which tools or platforms they use day-to-day that aren't listed or deserve more detail — specific to their domain (${latestRole}). Conversational.
 
-[AREA 6 — STANDOUT ACHIEVEMENT OR CAREER-DEFINING WIN] (section: "experience")
-Ask for one achievement or project that is NOT on the resume (or is heavily undersold) that they are most proud of — something that demonstrates their ceiling, not just their average performance.
+[SECTORS & DOMAIN] Ask which industries or verticals they have the deepest expertise in.
+  → Use questionType "mcq_multi" with **3–4 options** tailored to their background, plus **"Other" as the LAST option** so they can multi-select all that apply and elaborate elsewhere.
 
-[AREA 7 — ORGANISATIONAL-LEVEL IMPACT] (section: "summary")
-Ask how their work connected to the organisation's top-level goals — e.g. did their work feed into a company OKR, a product launch, a compliance milestone, or a strategic initiative? This surfaces the "so what?" at the company level, not just the team level.
+${domainAndTargetSlot}
 
-${isPivot ? `[AREA 8 — CAREER TRANSITION: TRANSFERABLE STRENGTHS] (section: "transition")
-[AREA 9 — CAREER TRANSITION: FORWARD-LOOKING MOTIVATION] (section: "transition")
-(See CAREER PIVOT DETECTED instructions above — these 2 are required.)` : `[AREA 8 — CAREER PROGRESSION MOTIVATION] (section: "transition")
-(See SAME-TRACK PROGRESSION instructions above — this 1 is required.)`}
+[CERTIFICATIONS & ACHIEVEMENTS] ${
+    snapshot.hasCertifications
+      ? `They have certifications (${snapshot.certifications.join(', ')}). Warmly ask if there are other awards, certs, talks, publications, or honours not on the resume.`
+      : `Warmly ask if they have certifications, awards, or recognition (publications, patents, speaking, honours) not yet on the resume.`
+  }
 
-━━━ QUESTION QUALITY RULES ━━━
-- Every question must reference THIS candidate's actual roles, companies, or projects where possible — no generic questions
-- Questions must feel like they come from someone who read the resume carefully
-- Hints must be specific, actionable, and give a concrete example of a great answer
-- MCQ options must be tailored to this candidate's domain and target role
-- NO questions about: target role, target country, years of experience, or anything in "WHAT WE ALREADY KNOW"
-- At least 3 MCQ questions and at least 3 text questions in the output
-- Total question count: minimum 7, maximum 10
+[CAREER-DEFINING WIN] Ask for one achievement they're most proud of that's missing or undersold — encouraging, not pressuring.
 
-━━━ OUTPUT FORMAT ━━━
-Return ONLY a JSON object with a "questions" array. No markdown, no preamble.
+━━━ RULES ━━━
+- Follow VOICE above for every "question" and "hint"
+- For STAT IMPACT: quote their exact stat or phrase from the bullet so it's clear you read it
+- Do not ask about anything listed under DO NOT ask about
+- Hints: one concrete example sentence, still warm (not formal)
+- **At least 2 questions** must use questionType **"mcq_multi"** (multi-select — candidate can pick several). Each must include **"Other"** as the **last** option in "options"
+- **At least 3 questions** must use questionType **"text"** (include the DOMAIN & TARGET / DOMAIN EXPERIENCE slot as one of them)
+- Total: 8–10 questions
+- For **mcq_multi** only: provide "options" array (strings). Last item must be exactly **Other**
 
-Schema:
+━━━ OUTPUT ━━━
+Return ONLY valid JSON. No markdown, no preamble.
+
 {
   "questions": [
     {
       "id": "q1",
-      "question": "Specific question referencing their actual resume content",
-      "hint": "Short example of an ideal answer (1 sentence, concrete)",
-      "questionType": "text" | "mcq",
-      "options": ["Option A", "Option B", "Option C", "Option D"],
-      "section": "experience" | "skills" | "summary" | "general" | "transition"
+      "question": "...",
+      "hint": "warm one-sentence example of a great answer",
+      "questionType": "text" | "mcq_multi",
+      "options": ["only when questionType is mcq_multi — 4–5 tailored options ending with Other"],
+      "section": "experience" | "skills" | "summary" | "transition" | "achievements" | "general"
     }
   ]
-}
-
-Note: "options" is only required when questionType is "mcq".`;
+}`;
 
   const response = await client.chat.completions.create({
     model: MODEL,
@@ -243,27 +269,40 @@ Note: "options" is only required when questionType is "mcq".`;
       {
         role: 'system',
         content:
-          'You are an expert career coach at Mentorque. Return only valid JSON with a "questions" array. Produce between 7 and 10 questions. Do not include markdown, code fences, or any text outside the JSON object.',
+          'You are a warm Mentorque career mentor. Return only valid JSON with a "questions" array (6–8 items). No markdown, no code fences, no text outside the JSON. Use questionType "mcq_multi" for multi-select questions; include "Other" as the last option when you use options.',
       },
       { role: 'user', content: prompt },
     ],
-    temperature: 0.45,
+    temperature: 0.35,
     response_format: { type: 'json_object' },
   });
 
   const content = response.choices[0]?.message?.content || '{"questions":[]}';
-  const parsed = JSON.parse(content);
-  const questions: RevampQuestion[] = parsed.questions || [];
+  const parsed  = JSON.parse(content);
+  const raw: RevampQuestion[] = parsed.questions || [];
 
-  // Enforce 7–10 range and stable IDs / questionType defaults
-  const capped = questions.slice(0, 10);
-  return capped.map((q, i) => ({
-    ...q,
-    id: q.id || `q${i + 1}`,
-    questionType: q.questionType || 'text',
-  }));
+  return raw.slice(0, 10).map((q, i) => normalizeGeneratedQuestion(q, i));
 }
 
+/** Ensure multi-select shape and trailing Other for choice questions */
+function normalizeGeneratedQuestion(q: RevampQuestion, i: number): RevampQuestion {
+  let questionType = q.questionType || 'text';
+  if (questionType === 'mcq') questionType = 'mcq_multi';
+
+  let options = q.options?.map((o) => String(o).trim()).filter(Boolean);
+  if (questionType === 'mcq_multi' && options?.length) {
+    const hasOther = options.some((o) => /^other$/i.test(o));
+    if (!hasOther) options = [...options, 'Other'];
+  }
+
+  return {
+    ...q,
+    id: q.id || `q${i + 1}`,
+    questionType,
+    options,
+    section: q.section || 'general',
+  };
+}
 // ─── 2. Resume revamp + diff ──────────────────────────────────────────────────
 
 export async function revampResume(

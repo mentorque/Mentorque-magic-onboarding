@@ -18,6 +18,55 @@ import type { RevampQuestion } from "../../lib/resumeRevampTypes";
 
 const PARTIAL_ANSWERS_KEY = "mentorque_questionnaire_partial_answers";
 
+const OTHER_RE = /^other$/i;
+
+type McqMultiStored = {
+  selected: string[];
+  /** Required when an option matching "Other" is selected */
+  otherText: string;
+  /** Optional elaboration on choices */
+  detail: string;
+};
+
+function parseMcqStored(raw: string | undefined): McqMultiStored {
+  if (!raw?.trim()) return { selected: [], otherText: "", detail: "" };
+  try {
+    const p = JSON.parse(raw) as Partial<McqMultiStored>;
+    return {
+      selected: Array.isArray(p.selected) ? (p.selected as string[]) : [],
+      otherText: typeof p.otherText === "string" ? p.otherText : "",
+      detail: typeof p.detail === "string" ? p.detail : "",
+    };
+  } catch {
+    return { selected: raw.trim() ? [raw.trim()] : [], otherText: "", detail: "" };
+  }
+}
+
+function stringifyMcqStored(v: McqMultiStored): string {
+  return JSON.stringify(v);
+}
+
+function isOtherOptionLabel(label: string): boolean {
+  return OTHER_RE.test(label.trim());
+}
+
+function isMcqMulti(q: RevampQuestion): boolean {
+  return q.questionType === "mcq_multi" || q.questionType === "mcq";
+}
+
+function isQuestionFilled(q: RevampQuestion, raw: string | undefined): boolean {
+  if (!raw?.trim()) return false;
+  if (!isMcqMulti(q)) return raw.trim().length > 0;
+  const p = parseMcqStored(raw);
+  const opts = q.options ?? [];
+  const otherLabel = opts.find((o) => isOtherOptionLabel(o));
+  const hasOtherSelected = otherLabel
+    ? p.selected.includes(otherLabel)
+    : p.selected.some((s) => isOtherOptionLabel(s));
+  if (hasOtherSelected && !p.otherText.trim()) return false;
+  return p.selected.length > 0 || p.detail.trim().length > 0;
+}
+
 interface QuestionsFormProps {
   questions: RevampQuestion[];
   parsedResume: any;
@@ -77,10 +126,9 @@ export function QuestionsForm({
     }
   }, [answers]);
 
-  const filledCount = questions.filter((q) => {
-    const val = answers[q.id];
-    return typeof val === "string" && val.trim().length > 0;
-  }).length;
+  const filledCount = questions.filter((q) =>
+    isQuestionFilled(q, answers[q.id]),
+  ).length;
   const required = questions.length;
   const canProceed = filledCount >= required;
 
@@ -201,8 +249,9 @@ export function QuestionsForm({
         </BlurFade>
         <BlurFade delay={0.2} className="w-full">
           <p className="text-sm font-medium text-muted-foreground text-center max-w-lg mx-auto px-4">
-            These are based on your resume and goals. Answer what you can — more
-            detail = a stronger revamp.
+            We read your resume with care — these questions are just to help you
+            shine. Share what feels right; more detail usually means a stronger
+            revamp.
           </p>
         </BlurFade>
       </div>
@@ -287,9 +336,10 @@ export function QuestionsForm({
                   }}
                   className="w-full"
                 >
-                  {currentQuestion.questionType === "mcq" &&
-                  currentQuestion.options ? (
-                    <div className="flex flex-col gap-8 w-full">
+                  {isMcqMulti(currentQuestion) &&
+                  currentQuestion.options &&
+                  currentQuestion.options.length > 0 ? (
+                    <div className="flex flex-col gap-6 w-full">
                       <div className="space-y-3">
                         <p className="text-foreground text-2xl font-medium text-center leading-tight">
                           {currentQuestion.question}
@@ -299,22 +349,43 @@ export function QuestionsForm({
                             {currentQuestion.hint}
                           </p>
                         )}
+                        <p className="text-xs text-center text-muted-foreground/70">
+                          Select all that apply — you can pick several.
+                        </p>
                       </div>
 
                       <div className="flex flex-wrap gap-3 w-full">
                         {currentQuestion.options.map((option) => {
-                          const isSelected =
-                            answers[currentQuestion.id] === option;
+                          const stored = parseMcqStored(
+                            answers[currentQuestion.id],
+                          );
+                          const isSelected = stored.selected.includes(option);
                           return (
                             <motion.button
                               key={option}
                               type="button"
-                              onClick={() =>
-                                setAnswers((prev) => ({
-                                  ...prev,
-                                  [currentQuestion.id]: option,
-                                }))
-                              }
+                              onClick={() => {
+                                setAnswers((prev) => {
+                                  const cur = parseMcqStored(
+                                    prev[currentQuestion.id],
+                                  );
+                                  const nextSel = isSelected
+                                    ? cur.selected.filter((x) => x !== option)
+                                    : [...cur.selected, option];
+                                  const otherText =
+                                    isOtherOptionLabel(option) && isSelected
+                                      ? ""
+                                      : cur.otherText;
+                                  return {
+                                    ...prev,
+                                    [currentQuestion.id]: stringifyMcqStored({
+                                      ...cur,
+                                      selected: nextSel,
+                                      otherText,
+                                    }),
+                                  };
+                                });
+                              }}
                               whileHover={{
                                 scale: 1.01,
                                 borderColor:
@@ -322,7 +393,7 @@ export function QuestionsForm({
                               }}
                               whileTap={{ scale: 0.99 }}
                               className={cn(
-                                "flex-1 min-w-[240px] py-4 px-6 rounded-2xl text-base font-medium transition-all duration-300 relative overflow-hidden border",
+                                "flex-1 min-w-[240px] py-4 px-6 rounded-2xl text-base font-medium transition-all duration-300 relative overflow-hidden border text-left",
                                 isSelected
                                   ? "text-foreground border-primary/40 shadow-[0_0_20px_rgba(var(--primary),0.1)]"
                                   : "text-foreground/50 border-white/5 hover:text-foreground/80",
@@ -339,17 +410,86 @@ export function QuestionsForm({
                               <div className="flex items-center justify-start gap-3 relative z-10">
                                 <div
                                   className={cn(
-                                    "w-2 h-2 rounded-full border transition-all duration-300",
+                                    "w-4 h-4 shrink-0 rounded border transition-all duration-300 flex items-center justify-center text-[10px] font-bold",
                                     isSelected
-                                      ? "bg-primary border-primary scale-125 shadow-[0_0_8px_hsl(var(--primary))]"
-                                      : "bg-transparent border-foreground/20",
+                                      ? "bg-primary border-primary text-background"
+                                      : "bg-transparent border-foreground/25",
                                   )}
-                                />
+                                >
+                                  {isSelected ? "✓" : ""}
+                                </div>
                                 <span>{option}</span>
                               </div>
                             </motion.button>
                           );
                         })}
+                      </div>
+
+                      {(() => {
+                        const stored = parseMcqStored(
+                          answers[currentQuestion.id],
+                        );
+                        const otherSelected = stored.selected.some((s) =>
+                          isOtherOptionLabel(s),
+                        );
+                        return otherSelected ? (
+                          <div className="flex flex-col gap-2 w-full">
+                            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                              Tell us a bit about &quot;Other&quot;
+                            </label>
+                            <input
+                              type="text"
+                              value={stored.otherText}
+                              onChange={(e) =>
+                                setAnswers((prev) => {
+                                  const cur = parseMcqStored(
+                                    prev[currentQuestion.id],
+                                  );
+                                  return {
+                                    ...prev,
+                                    [currentQuestion.id]: stringifyMcqStored({
+                                      ...cur,
+                                      otherText: e.target.value,
+                                    }),
+                                  };
+                                })
+                              }
+                              placeholder="Type your other choice here…"
+                              className="w-full rounded-xl border border-white/10 bg-foreground/[0.03] px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            />
+                          </div>
+                        ) : null;
+                      })()}
+
+                      <div className="flex flex-col gap-2 w-full">
+                        <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                          Anything else you&apos;d like to add?{" "}
+                          <span className="font-normal normal-case text-muted-foreground/60">
+                            (optional)
+                          </span>
+                        </label>
+                        <textarea
+                          value={
+                            parseMcqStored(answers[currentQuestion.id]).detail
+                          }
+                          onChange={(e) =>
+                            setAnswers((prev) => {
+                              const cur = parseMcqStored(
+                                prev[currentQuestion.id],
+                              );
+                              return {
+                                ...prev,
+                                [currentQuestion.id]: stringifyMcqStored({
+                                  ...cur,
+                                  detail: e.target.value,
+                                }),
+                              };
+                            })
+                          }
+                          placeholder="Context, nuance, or extra detail…"
+                          rows={3}
+                          className="w-full rounded-xl border border-white/10 bg-transparent px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/35 resize-none focus:outline-none focus:ring-2 focus:ring-primary/25"
+                        />
                       </div>
                     </div>
                   ) : (

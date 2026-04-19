@@ -10,11 +10,21 @@ export interface RevampQuestion {
   id: string;
   question: string;
   hint: string;
-  /** Question input type — 'text' for free-form, 'mcq' for multiple choice */
-  questionType: 'text' | 'mcq';
-  /** Options for MCQ questions */
+  /**
+   * `text` — free-form.
+   * `mcq_multi` — multi-select + optional detail; answers stored as JSON string.
+   * `mcq` — legacy; UI treats as multi-select like `mcq_multi`.
+   */
+  questionType: 'text' | 'mcq' | 'mcq_multi';
+  /** Options for multi-select; last is often "Other" */
   options?: string[];
-  section: 'experience' | 'skills' | 'summary' | 'general';
+  section:
+    | 'experience'
+    | 'skills'
+    | 'summary'
+    | 'general'
+    | 'transition'
+    | 'achievements';
 }
 
 export type ChangeSection = 'experience' | 'projects' | 'summary' | 'skills';
