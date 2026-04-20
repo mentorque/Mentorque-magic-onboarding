@@ -212,7 +212,7 @@ const FORM_SUBMITTED_KEY = "mentorque_onboarding_form_submitted";
 const INPUT_LOCKED_STORAGE_KEY = "mentorque_onboarding_inputs_complete";
 /** Raw resume text from upload/paste — mirrored so Experience / revamp never lose it on navigation. */
 const RESUME_TEXT_STORAGE_KEY = "mentorque_onboarding_resume_text";
-/** Current step persisted across refreshes */
+/** Current step persisted across refreshes — NOT trusted for resumeRevamp sub-routing (DB wins). */
 const CURRENT_STEP_STORAGE_KEY = "mentorque_onboarding_current_step";
 /** Basic details persisted across refreshes */
 const BASIC_DETAILS_STORAGE_KEY = "mentorque_onboarding_basic_details";
@@ -654,7 +654,14 @@ export function OnboardingFlow() {
       }
       const path = window.location.pathname;
       const storedStep = localStorage.getItem(CURRENT_STEP_STORAGE_KEY);
-      if (storedStep && STEPS.includes(storedStep as OnboardingStep)) {
+      // Trust localStorage ONLY for steps BEFORE the gate (preferences).
+      // For resumeRevamp and beyond, server state always owns the sub-routing.
+      if (
+        storedStep &&
+        STEPS.includes(storedStep as OnboardingStep) &&
+        storedStep !== "resumeRevamp" &&
+        storedStep !== "submitted"
+      ) {
         return storedStep as OnboardingStep;
       }
       if (path === "/resume-revamp" || path === "/resume-revamp-reveal")
@@ -782,6 +789,16 @@ export function OnboardingFlow() {
   const [preGeneratedParsedResume, setPreGeneratedParsedResume] = useState<any>(null);
   /** Revamp result from DB (revamp_result column) — for returning users. */
   const [preLoadedRevampResult, setPreLoadedRevampResult] = useState<RevampResult | null>(null);
+  /**
+   * True when the user has ALREADY submitted questionnaire answers (from DB).
+   * Passed to ResumeRevampStep to prevent questionnaire from re-appearing.
+   */
+  const [questionnaireDone, setQuestionnaireDone] = useState(false);
+  /**
+   * True while fetching DB state after Firebase auth — prevents ResumeRevampStep
+   * from rendering with null data (race condition guard).
+   */
+  const [dbDataLoading, setDbDataLoading] = useState(false);
 
   const setStep = useCallback(
     (next: OnboardingStep) => {
@@ -992,6 +1009,7 @@ export function OnboardingFlow() {
 
         let lockedFromServer = false;
         try {
+          setDbDataLoading(true);
           const od = await fetch(withApiBase("/api/onboarding/details"), {
             headers: { Authorization: `Bearer ${idToken}` },
           });
@@ -1011,37 +1029,65 @@ export function OnboardingFlow() {
 
             revampSpaceOnlyRef.current = false;
 
-            // Revealed + input complete → full-screen comparison only (/revamp-space)
+            // ── Helper: normalise aiQuestions from DB ────────────────────────
+            const normaliseQuestions = (raw: any): RevampQuestion[] => {
+              if (!raw) return [];
+              if (Array.isArray(raw)) return raw;
+              return (raw as any)?.questions ?? [];
+            };
+
+            const sub = jd.submission;
+            const dbInputStatus = sub?.inputStatus;
+            const dbRevealResume = sub?.revealResume;
+            const dbHasAnswers = Boolean(
+              sub?.questionnaireAnswers &&
+              Object.keys(sub.questionnaireAnswers).length > 0
+            );
+            const dbHasQuestions = Boolean(
+              sub?.aiQuestions &&
+              normaliseQuestions(sub.aiQuestions).length > 0
+            );
+
+            // ──────────────────────────────────────────────────────────────────
+            // GATE 1: input_complete + revealed → full revamp space only
+            // ──────────────────────────────────────────────────────────────────
             if (
-              jd.submission?.inputStatus === "input_complete" &&
-              jd.submission?.revealResume === true
+              dbInputStatus === "input_complete" &&
+              dbRevealResume === true &&
+              dbHasAnswers
             ) {
               lockedFromServer = true;
               revampSpaceOnlyRef.current = true;
               setInputsCompleteLocked(true);
               localStorage.setItem(INPUT_LOCKED_STORAGE_KEY, "1");
               localStorage.setItem(FORM_SUBMITTED_KEY, "1");
-              if (jd.submission?.id) {
-                setOnboardingSubmissionId(jd.submission.id);
-                localStorage.setItem(SUBMISSION_STORAGE_KEY, jd.submission.id);
+              localStorage.setItem(CURRENT_STEP_STORAGE_KEY, "resumeRevamp");
+              if (sub?.id) {
+                setOnboardingSubmissionId(sub.id);
+                localStorage.setItem(SUBMISSION_STORAGE_KEY, sub.id);
               }
               setAppRoute("/revamp-space");
               return;
             }
 
-            // Top-priority gate: input complete but not yet revealed → always hold on reveal page
-            if (
-              jd.submission?.inputStatus === "input_complete" &&
-              jd.submission?.revealResume === false
-            ) {
+            // ──────────────────────────────────────────────────────────────────
+            // GATE 2: input_complete + answers submitted → awaitReveal (or comparison if revealed)
+            // ──────────────────────────────────────────────────────────────────
+            if (dbInputStatus === "input_complete" && dbHasAnswers) {
               lockedFromServer = true;
               setInputsCompleteLocked(true);
               localStorage.setItem(INPUT_LOCKED_STORAGE_KEY, "1");
               localStorage.setItem(FORM_SUBMITTED_KEY, "1");
-              if (jd.submission.id) {
-                setOnboardingSubmissionId(jd.submission.id);
-                localStorage.setItem(SUBMISSION_STORAGE_KEY, jd.submission.id);
+              localStorage.setItem(CURRENT_STEP_STORAGE_KEY, "resumeRevamp");
+              if (sub?.id) {
+                setOnboardingSubmissionId(sub.id);
+                localStorage.setItem(SUBMISSION_STORAGE_KEY, sub.id);
               }
+              // Always populate DB data for the revamp step
+              if (sub?.parsedResume) setPreGeneratedParsedResume(sub.parsedResume);
+              if (sub?.revampResult) setPreLoadedRevampResult(sub.revampResult);
+              if (sub?.aiQuestions) setPreGeneratedQuestions(normaliseQuestions(sub.aiQuestions));
+              setQuestionnaireDone(true);
               setReturningUserRevealOnly(true);
               setStep("resumeRevamp");
               setResumeRevampRevealRoute(true);
@@ -1049,68 +1095,58 @@ export function OnboardingFlow() {
               return;
             }
 
-            const st = jd.submission?.inputStatus;
-            if (isInputSavedInDb(st)) {
+            // ──────────────────────────────────────────────────────────────────
+            // GATE 3: input_complete + questions ready + NO answers yet → questionnaire
+            // ──────────────────────────────────────────────────────────────────
+            if (dbInputStatus === "input_complete" && !dbHasAnswers && dbHasQuestions) {
               lockedFromServer = true;
               setInputsCompleteLocked(true);
               localStorage.setItem(INPUT_LOCKED_STORAGE_KEY, "1");
-              if (jd.submission?.id) {
-                setOnboardingSubmissionId(jd.submission.id);
-                localStorage.setItem(SUBMISSION_STORAGE_KEY, jd.submission.id);
-              }
-              if (jd.submission?.uploadedResumeText != null) {
-                commitResumeText(jd.submission.uploadedResumeText ?? "");
-              }
               localStorage.setItem(FORM_SUBMITTED_KEY, "1");
-
-              const hasAnswers = Boolean(
-                jd.submission?.questionnaireAnswers &&
-                Object.keys(jd.submission.questionnaireAnswers).length > 0
-              );
-              const hasQuestions = Boolean(
-                jd.submission?.aiQuestions &&
-                (Array.isArray(jd.submission.aiQuestions)
-                  ? jd.submission.aiQuestions.length > 0
-                  : true)
-              );
-
-              if (hasAnswers) {
-                // Questionnaire already submitted → go to awaitReveal / comparison
-                setReturningUserRevealOnly(true);
-                if (jd.submission?.parsedResume) setPreGeneratedParsedResume(jd.submission.parsedResume);
-                if (jd.submission?.revampResult) setPreLoadedRevampResult(jd.submission.revampResult);
-                if (jd.submission?.aiQuestions) {
-                  setPreGeneratedQuestions(
-                    Array.isArray(jd.submission.aiQuestions)
-                      ? jd.submission.aiQuestions
-                      : (jd.submission.aiQuestions as any)?.questions ?? []
-                  );
-                }
-                setStep("resumeRevamp");
-                setResumeRevampRevealRoute(true);
-                window.history.replaceState(null, "", "/resume-revamp-reveal");
-              } else if (hasQuestions) {
-                // Form submitted, questions ready, not yet answered → show questionnaire
-                setPreGeneratedQuestions(
-                  Array.isArray(jd.submission?.aiQuestions)
-                    ? jd.submission!.aiQuestions!
-                    : (jd.submission?.aiQuestions as any)?.questions ?? []
-                );
-                if (jd.submission?.parsedResume) setPreGeneratedParsedResume(jd.submission.parsedResume);
-                setStep("resumeRevamp");
-                setResumeRevampRevealRoute(false);
-                window.history.replaceState(null, "", "/resume-revamp#questionnaire");
-              } else {
-                // Legacy / questions still generating — fallback to reveal
-                setReturningUserRevealOnly(true);
-                setStep("resumeRevamp");
-                setResumeRevampRevealRoute(true);
-                window.history.replaceState(null, "", "/resume-revamp-reveal");
+              localStorage.setItem(CURRENT_STEP_STORAGE_KEY, "resumeRevamp");
+              if (sub?.id) {
+                setOnboardingSubmissionId(sub.id);
+                localStorage.setItem(SUBMISSION_STORAGE_KEY, sub.id);
               }
+              // Provide questions + resume data so the questionnaire renders immediately
+              setPreGeneratedQuestions(normaliseQuestions(sub!.aiQuestions));
+              if (sub?.parsedResume) setPreGeneratedParsedResume(sub.parsedResume);
+              if (sub?.uploadedResumeText) commitResumeText(sub.uploadedResumeText);
+              setQuestionnaireDone(false);
+              setReturningUserRevealOnly(false);
+              setStep("resumeRevamp");
+              setResumeRevampRevealRoute(false);
+              window.history.replaceState(null, "", "/resume-revamp#questionnaire");
+              return;
+            }
+
+            // ──────────────────────────────────────────────────────────────────
+            // GATE 4: input_complete + questions NOT ready yet → await reveal as fallback
+            // (questions still being generated by AI, edge case)
+            // ──────────────────────────────────────────────────────────────────
+            if (dbInputStatus === "input_complete" && !dbHasAnswers && !dbHasQuestions) {
+              lockedFromServer = true;
+              setInputsCompleteLocked(true);
+              localStorage.setItem(INPUT_LOCKED_STORAGE_KEY, "1");
+              localStorage.setItem(FORM_SUBMITTED_KEY, "1");
+              localStorage.setItem(CURRENT_STEP_STORAGE_KEY, "resumeRevamp");
+              if (sub?.id) {
+                setOnboardingSubmissionId(sub.id);
+                localStorage.setItem(SUBMISSION_STORAGE_KEY, sub.id);
+              }
+              if (sub?.uploadedResumeText) commitResumeText(sub.uploadedResumeText);
+              setQuestionnaireDone(false);
+              setReturningUserRevealOnly(true);
+              setStep("resumeRevamp");
+              setResumeRevampRevealRoute(true);
+              window.history.replaceState(null, "", "/resume-revamp-reveal");
+              return;
             }
           }
         } catch (e) {
           console.error(e);
+        } finally {
+          setDbDataLoading(false);
         }
 
         if (lockedFromServer) return;
@@ -1132,6 +1168,8 @@ export function OnboardingFlow() {
         }
       } catch (e) {
         console.error(e);
+      } finally {
+        setDbDataLoading(false);
       }
     });
     return () => unsub();
@@ -1176,6 +1214,11 @@ export function OnboardingFlow() {
     setInputsCompleteLocked(false);
     revampSpaceOnlyRef.current = false;
     setReturningUserRevealOnly(false);
+    setQuestionnaireDone(false);
+    setDbDataLoading(false);
+    setPreGeneratedQuestions(null);
+    setPreGeneratedParsedResume(null);
+    setPreLoadedRevampResult(null);
     setFirstName("");
     setLastName("");
     setPhone("");
@@ -2158,19 +2201,28 @@ export function OnboardingFlow() {
               transition={{ duration: 0.35, ease: "easeOut" }}
               className="relative z-10 flex w-full max-w-[1600px] h-full flex-col mx-auto px-6 pt-20 pb-2 overflow-hidden"
             >
-              <ResumeRevampStep
-                onComplete={(finalResumeData) => {
-                  handleFinalSubmit();
-                }}
-                apiBaseUrl={API_BASE_URL}
-                preGeneratedQuestions={preGeneratedQuestions}
-                preGeneratedParsedResume={preGeneratedParsedResume}
-                preLoadedRevampResult={preLoadedRevampResult}
-                onboardingSubmissionId={onboardingSubmissionId}
-                authToken={authToken}
-                onRevealPathChange={setResumeRevampRevealRoute}
-                skipEarlierRevampStages={returningUserRevealOnly}
-              />
+              {/* Race-condition guard: wait for DB data before rendering ResumeRevampStep */}
+              {dbDataLoading ? (
+                <div className="flex flex-1 flex-col items-center justify-center gap-3">
+                  <Loader className="w-8 h-8 animate-spin text-primary/60" />
+                  <p className="text-sm text-muted-foreground">Loading your progress…</p>
+                </div>
+              ) : (
+                <ResumeRevampStep
+                  onComplete={(finalResumeData) => {
+                    handleFinalSubmit();
+                  }}
+                  apiBaseUrl={API_BASE_URL}
+                  preGeneratedQuestions={preGeneratedQuestions}
+                  preGeneratedParsedResume={preGeneratedParsedResume}
+                  preLoadedRevampResult={preLoadedRevampResult}
+                  onboardingSubmissionId={onboardingSubmissionId}
+                  authToken={authToken}
+                  onRevealPathChange={setResumeRevampRevealRoute}
+                  skipEarlierRevampStages={returningUserRevealOnly}
+                  questionnaireDone={questionnaireDone}
+                />
+              )}
             </motion.div>
           )}
         </AnimatePresence>

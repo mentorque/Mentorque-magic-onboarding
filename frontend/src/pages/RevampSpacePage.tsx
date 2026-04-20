@@ -197,6 +197,7 @@ export function RevampSpacePage() {
           compiledPdfUrl={revampResult.compiledPdfUrl}
           apiBaseUrl={API_BASE_URL}
           annotation={pdfAnnotation}
+          authToken={accessToken}
         />
       </div>
     </RevampSpaceShell>

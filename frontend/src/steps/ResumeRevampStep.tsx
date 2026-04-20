@@ -147,6 +147,11 @@ interface ResumeRevampStepProps {
    * Used for returning users who already answered the questionnaire.
    */
   preLoadedRevampResult?: RevampResult | null;
+  /**
+   * When true: the user has ALREADY submitted questionnaire answers (from DB).
+   * Forces the component straight to awaitReveal/comparison — never shows questionnaire.
+   */
+  questionnaireDone?: boolean;
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -161,14 +166,28 @@ export function ResumeRevampStep({
   preGeneratedQuestions = null,
   preGeneratedParsedResume = null,
   preLoadedRevampResult = null,
+  questionnaireDone = false,
 }: ResumeRevampStepProps) {
-  /** Direct navigation to `/resume-revamp-reveal` should show the waiting UI. */
+  /** Direct navigation to `/resume-revamp-reveal` shows waiting UI */
   const [enteredViaRevealUrl] = useState(
     () =>
       typeof window !== "undefined" &&
       window.location.pathname === "/resume-revamp-reveal",
   );
-  const revealOnlyFlow = skipEarlierRevampStages || enteredViaRevealUrl;
+
+  const hasPreloadedQuestions =
+    (preGeneratedQuestions && preGeneratedQuestions.length > 0);
+
+  const hasPreloadedRevamp = !!preLoadedRevampResult;
+
+  // questionnaireDone=true means answers already exist in DB — never show questionnaire again.
+  // revealOnlyFlow covers both the skip flag and direct URL navigation to /resume-revamp-reveal.
+  const revealOnlyFlow = questionnaireDone || skipEarlierRevampStages || enteredViaRevealUrl;
+
+  // Show questionnaire only when: we're in reveal-only mode (form done), questions are available,
+  // revamp hasn't happened yet, AND the questionnaire hasn't been submitted yet.
+  const shouldShowQuestionnaire =
+    !questionnaireDone && revealOnlyFlow && !hasPreloadedRevamp && hasPreloadedQuestions;
 
   const revealTitles = useMemo(() => REVEAL_SLIDES.map((s) => s.title), []);
   const [revealSlideIndex, setRevealSlideIndex] = useState(0);
@@ -235,14 +254,28 @@ export function ResumeRevampStep({
   });
 
   const [stage, setStage] = useState<RevampStage>(() => {
-    if (revealOnlyFlow) return "awaitReveal";
+    // User already answered questionnaire → always go to awaitReveal (or comparison if revamp loaded)
+    if (questionnaireDone) {
+      return "awaitReveal";
+    }
+    // On the reveal URL without questionnaire done — show questionnaire if questions available
+    if (revealOnlyFlow && !shouldShowQuestionnaire) return "awaitReveal";
     if (
       typeof window !== "undefined" &&
       window.location.pathname === "/resume-revamp-reveal"
     ) {
+      if (shouldShowQuestionnaire) return "questions";
       return "awaitReveal";
     }
-    // Always start at questions (upload stage removed)
+    // URL hash #questionnaire is an explicit intent signal
+    if (
+      typeof window !== "undefined" &&
+      window.location.hash === "#questionnaire" &&
+      hasPreloadedQuestions &&
+      !questionnaireDone
+    ) {
+      return "questions";
+    }
     return "questions";
   });
 
@@ -306,14 +339,27 @@ export function ResumeRevampStep({
     revealOnlyFlow,
   ]);
 
-  // `/resume-revamp-reveal` while generating or waiting for mentor reveal; `/resume-revamp` otherwise.
+  // Update URL based on current stage
   useEffect(() => {
     const useRevealPath = revampFlowBusy || stage === "awaitReveal";
     onRevealPathChange?.(useRevealPath);
     if (typeof window === "undefined") return;
-    const next = useRevealPath ? "/resume-revamp-reveal" : "/resume-revamp";
-    if (window.location.pathname !== next) {
-      window.history.replaceState(null, "", next);
+
+    let nextPath: string;
+    let hash = "";
+
+    if (useRevealPath) {
+      nextPath = "/resume-revamp-reveal";
+    } else if (stage === "questions") {
+      nextPath = "/resume-revamp";
+      hash = "#questionnaire";
+    } else {
+      nextPath = "/resume-revamp";
+    }
+
+    const fullPath = hash ? `${nextPath}${hash}` : nextPath;
+    if (window.location.pathname !== nextPath || window.location.hash !== hash.replace("#", "")) {
+      window.history.replaceState(null, "", fullPath);
     }
   }, [stage, revampFlowBusy, onRevealPathChange]);
 
@@ -519,6 +565,7 @@ export function ResumeRevampStep({
               changes={revampResult.changes}
               compiledPdfUrl={revampResult.compiledPdfUrl}
               apiBaseUrl={apiBaseUrl}
+              authToken={authToken ?? undefined}
             />
           </motion.div>
         )}
