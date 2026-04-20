@@ -258,6 +258,68 @@ router.post("/form-submission", authenticateFirebaseToken, async (req: Request, 
         return { submission, resumeSettingId };
       }
 
+      // ── No submissionId provided: check if user already has a submission ──────
+      // This handles returning users whose localStorage was cleared or who opened
+      // an incognito session — avoids creating a duplicate row.
+      const [existingByUser] = await tx
+        .select()
+        .from(onboardingSubmissionsTable)
+        .where(eq(onboardingSubmissionsTable.userId, authId))
+        .orderBy(desc(onboardingSubmissionsTable.updatedAt))
+        .limit(1);
+
+      if (existingByUser) {
+        // Re-use the existing row (same logic as the submissionId UPDATE path)
+        let resumeSettingId = existingByUser.resumeSettingId;
+
+        if (resumeSettingId) {
+          const [existingSetting] = await tx
+            .select({ customSections: resumeSettingsTable.customSections })
+            .from(resumeSettingsTable)
+            .where(eq(resumeSettingsTable.id, resumeSettingId));
+          await tx
+            .update(resumeSettingsTable)
+            .set({
+              name: settingName,
+              customSections: mergeCustomWithMentorqueSnapshot(
+                existingSetting?.customSections,
+                resumeDataPayload,
+              ),
+              updatedAt: new Date(),
+            })
+            .where(eq(resumeSettingsTable.id, resumeSettingId));
+        } else {
+          const [created] = await tx
+            .insert(resumeSettingsTable)
+            .values(
+              newOnboardingResumeSettingsRow({
+                userId: authId,
+                name: settingName,
+                snapshot: resumeDataPayload,
+              }),
+            )
+            .returning();
+          resumeSettingId = created.id;
+        }
+
+        const [submission] = await tx
+          .update(onboardingSubmissionsTable)
+          .set({
+            basicDetails: mergedBasic,
+            uploadedResumeText: rawResumeText,
+            preferencesTaken,
+            revealResume,
+            resumeSettingId,
+            inputStatus: ONBOARDING_INPUT_STATUS.INPUT_COMPLETE,
+            updatedAt: new Date(),
+          })
+          .where(eq(onboardingSubmissionsTable.id, existingByUser.id))
+          .returning();
+
+        return { submission, resumeSettingId };
+      }
+
+      // ── Truly new user: fresh INSERT ─────────────────────────────────────
       const [createdSetting] = await tx
         .insert(resumeSettingsTable)
         .values(
