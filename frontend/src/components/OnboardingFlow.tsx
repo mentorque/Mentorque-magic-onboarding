@@ -2216,11 +2216,11 @@ export function OnboardingFlow() {
                       <GlassButton
                         type="button"
                         onClick={() => void submitFormAndOpenRevamp()}
-                        disabled={isSubmittingForm}
+                        disabled={!canProceedPrefs || isSubmittingForm}
                         contentClassName="flex items-center gap-2"
                         className={cn(
                           "transition-opacity",
-                          isSubmittingForm && "opacity-40",
+                          (!canProceedPrefs || isSubmittingForm) && "opacity-40",
                         )}
                       >
                         {isSubmittingForm ? (
