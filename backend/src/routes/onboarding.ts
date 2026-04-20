@@ -725,6 +725,42 @@ router.delete("/reviewers/:id", async (req: Request, res: Response) => {
   }
 });
 
+router.delete("/admin/:token/submissions/:submissionId", async (req: Request, res: Response) => {
+  const token = req.params.token as string;
+  const submissionId = req.params.submissionId as string;
+
+  if (token !== ADMIN_ACCESS_TOKEN) {
+    return res.status(403).json({ success: false, message: "Invalid admin token." });
+  }
+
+  try {
+    const [submission] = await db
+      .delete(onboardingSubmissionsTable)
+      .where(eq(onboardingSubmissionsTable.id, submissionId))
+      .returning();
+
+    if (!submission) {
+      return res.status(404).json({ success: false, message: "Submission not found." });
+    }
+
+    if (submission.resumeSettingId) {
+      await db
+        .delete(resumeSettingsTable)
+        .where(eq(resumeSettingsTable.id, submission.resumeSettingId))
+        .execute();
+    }
+
+    await db
+      .delete(resumeReviewersTable)
+      .where(eq(resumeReviewersTable.onboardingId, submissionId))
+      .execute();
+
+    return res.json({ success: true, submission });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 router.get("/admin/:token/list", async (req: Request, res: Response) => {
   const token = req.params.token as string;
   if (token !== ADMIN_ACCESS_TOKEN) {
@@ -732,7 +768,6 @@ router.get("/admin/:token/list", async (req: Request, res: Response) => {
   }
 
   try {
-    // Prisma "User" table uses fullName (camelCase column), not name.
     const result = await db.execute(sql<{
       onboardingId: string;
       userId: string;
@@ -740,6 +775,10 @@ router.get("/admin/:token/list", async (req: Request, res: Response) => {
       userEmail: string | null;
       revealResume: boolean;
       inputStatus: string;
+      aiQuestions: unknown;
+      questionnaireAnswers: unknown;
+      revampResult: unknown;
+      updatedAt: string;
     }>`
       select
         os.id as "onboardingId",
@@ -747,7 +786,11 @@ router.get("/admin/:token/list", async (req: Request, res: Response) => {
         u."fullName" as "userName",
         u.email as "userEmail",
         os.reveal_resume as "revealResume",
-        os.input_status as "inputStatus"
+        os.input_status as "inputStatus",
+        os.ai_questions as "aiQuestions",
+        os.questionnaire_answers as "questionnaireAnswers",
+        os.revamp_result as "revampResult",
+        os.updated_at as "updatedAt"
       from onboarding_submissions os
       left join "User" u on u.id = os.user_id
     `);
@@ -758,20 +801,48 @@ router.get("/admin/:token/list", async (req: Request, res: Response) => {
       userEmail: string | null;
       revealResume: boolean;
       inputStatus: string;
+      aiQuestions: unknown;
+      questionnaireAnswers: unknown;
+      revampResult: unknown;
+      updatedAt: string;
     }>;
 
-    const items = rows.map((row: (typeof rows)[number]) => ({
-      onboardingId: row.onboardingId,
-      userId: row.userId,
-      userName: row.userName ?? row.userEmail ?? "Unknown User",
-      wildcardLinks: {
-        resumeRevamp: `/resume-revamp?onboardingId=${encodeURIComponent(
-          row.onboardingId,
-        )}`,
-      },
-      revealResume: row.revealResume,
-      inputStatus: row.inputStatus,
-    }));
+    const items = rows.map((row: (typeof rows)[number]) => {
+      const hasAiQuestions = Array.isArray(row.aiQuestions) && row.aiQuestions.length > 0;
+      const hasQuestionnaireAnswers =
+        row.questionnaireAnswers && typeof row.questionnaireAnswers === "object" && Object.keys(row.questionnaireAnswers).length > 0;
+      const hasRevampResult = row.revampResult && typeof row.revampResult === "object" && Object.keys(row.revampResult).length > 0;
+
+      let progressStep: string;
+      if (row.inputStatus === "input_complete" && hasRevampResult) {
+        progressStep = "Revamp ready";
+      } else if (row.inputStatus === "input_complete" && hasQuestionnaireAnswers) {
+        progressStep = "Questionnaire answered";
+      } else if (row.inputStatus === "input_complete" && hasAiQuestions) {
+        progressStep = "Questionnaire generated";
+      } else if (row.inputStatus === "input_complete") {
+        progressStep = "Form complete";
+      } else {
+        progressStep = "Input pending";
+      }
+
+      return {
+        onboardingId: row.onboardingId,
+        userId: row.userId,
+        userName: row.userName ?? row.userEmail ?? "Unknown User",
+        wildcardLinks: {
+          resumeRevamp: `/resume-revamp?onboardingId=${encodeURIComponent(
+            row.onboardingId,
+          )}`,
+        },
+        revealResume: row.revealResume,
+        progress: progressStep,
+        hasAiQuestions,
+        hasQuestionnaireAnswers,
+        hasRevampResult,
+        updatedAt: row.updatedAt,
+      };
+    });
 
     return res.json({ success: true, items });
   } catch (err: any) {
