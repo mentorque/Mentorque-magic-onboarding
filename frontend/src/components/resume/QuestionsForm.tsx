@@ -8,7 +8,7 @@
  * - On submit: runs revamp API call, then saves answers + result to DB in one write
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -114,6 +114,8 @@ export function QuestionsForm({
     return {};
   });
   const [loading, setLoading] = useState(false);
+  /** Synchronous in-flight guard — prevents double-submit before React re-renders the disabled button */
+  const submittingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [direction, setDirection] = useState(0); // -1 for back, 1 for next
 
@@ -147,6 +149,9 @@ export function QuestionsForm({
   };
 
   const handleSubmit = async () => {
+    // Synchronous guard: prevents a second click from racing before React re-renders
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     onRevampFlowStart?.();
     setError(null);
     setLoading(true);
@@ -214,6 +219,7 @@ export function QuestionsForm({
     } catch (err: any) {
       setError(err.message || "Something went wrong.");
     } finally {
+      submittingRef.current = false;
       setLoading(false);
       onRevampFlowEnd?.();
     }
