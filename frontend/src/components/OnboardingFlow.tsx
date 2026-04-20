@@ -642,6 +642,8 @@ const MentorqueLogo = () => (
 export function OnboardingFlow() {
   const [, setAppRoute] = useLocation();
   const revampSpaceOnlyRef = useRef(false);
+  /** Set to true during logout — causes any in-flight onAuthStateChanged callback to abort immediately */
+  const loggingOutRef = useRef(false);
   const [step, setStepInternal] = useState<OnboardingStep>(() => {
     if (typeof window !== "undefined") {
       try {
@@ -862,6 +864,8 @@ export function OnboardingFlow() {
   }, []);
 
   const [isSubmittingForm, setIsSubmittingForm] = useState(false);
+  /** Synchronous in-flight guard — prevents double-submit before React re-renders the disabled button */
+  const formSubmittingRef = useRef(false);
   const [formSubmitError, setFormSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -982,8 +986,12 @@ export function OnboardingFlow() {
         clearAuth();
         return;
       }
+      // Abort immediately if logout was triggered — don't let a stale in-flight
+      // callback undo the logout by re-setting auth state / re-routing.
+      if (loggingOutRef.current) return;
       try {
         const idToken = await firebaseUser.getIdToken();
+        if (loggingOutRef.current) return;
         // Populate the store immediately from Firebase so the user widget
         // always renders, even if the backend sync is slow or fails.
         setAuth(
@@ -1002,6 +1010,7 @@ export function OnboardingFlow() {
           },
         });
         if (!response.ok) return;
+        if (loggingOutRef.current) return;
         const data = await response.json();
         setAuth(data.user, idToken);
 
@@ -1013,6 +1022,7 @@ export function OnboardingFlow() {
           const od = await fetch(withApiBase("/api/onboarding/details"), {
             headers: { Authorization: `Bearer ${idToken}` },
           });
+          if (loggingOutRef.current) return;
           if (od.ok) {
             const jd = (await od.json()) as {
               submission?: {
@@ -1037,6 +1047,35 @@ export function OnboardingFlow() {
             };
 
             const sub = jd.submission;
+
+            // ──────────────────────────────────────────────────────────────────
+            // GATE 0: submission was deleted from the backend — wipe stale state
+            // ──────────────────────────────────────────────────────────────────
+            // localStorage may still hold FORM_SUBMITTED_KEY / INPUT_LOCKED_STORAGE_KEY
+            // from the previous session, which would incorrectly lock the user into
+            // the revamp step. Clear everything and send them back to basics.
+            if (!sub) {
+              localStorage.removeItem(FORM_SUBMITTED_KEY);
+              localStorage.removeItem(INPUT_LOCKED_STORAGE_KEY);
+              localStorage.removeItem(SUBMISSION_STORAGE_KEY);
+              localStorage.removeItem(CURRENT_STEP_STORAGE_KEY);
+              localStorage.removeItem(RESUME_TEXT_STORAGE_KEY);
+              // Clear all in-memory state that mirrors those localStorage keys
+              setInputsCompleteLocked(false);
+              revampSpaceOnlyRef.current = false;
+              setOnboardingSubmissionId(null);
+              setReturningUserRevealOnly(false);
+              setQuestionnaireDone(false);
+              setPreGeneratedQuestions(null);
+              setPreGeneratedParsedResume(null);
+              setPreLoadedRevampResult(null);
+              commitResumeText("");
+              // Route to basics and update the URL
+              setStepInternal("basics");
+              window.history.replaceState(null, "", "/onboarding-form");
+              return;
+            }
+
             const dbInputStatus = sub?.inputStatus;
             const dbRevealResume = sub?.revealResume;
             const dbHasAnswers = Boolean(
@@ -1200,6 +1239,10 @@ export function OnboardingFlow() {
   };
 
   const handleLogout = async () => {
+    // Set the cancellation flag FIRST — any in-flight onAuthStateChanged callback
+    // (awaiting getIdToken / auth/sync / onboarding/details) will check this flag
+    // and abort before it can restore auth state or re-route the user.
+    loggingOutRef.current = true;
     try {
       await signOut(auth);
     } catch {
@@ -1236,6 +1279,9 @@ export function OnboardingFlow() {
     setSeniority("");
     setWorkStyle("");
     setStep("login");
+    // Reset the flag after login step is set — a fresh login attempt will
+    // need the onAuthStateChanged callback to run normally.
+    loggingOutRef.current = false;
   };
 
   const persistSubmissionId = (id: string) => {
@@ -1261,9 +1307,13 @@ export function OnboardingFlow() {
   );
 
   const submitFormAndOpenRevamp = async () => {
+    // Synchronous guard: prevents a second click from racing before React re-renders
+    if (formSubmittingRef.current) return;
+    formSubmittingRef.current = true;
     const u = useAuthStore.getState().user;
     const token = useAuthStore.getState().token;
     if (!u?.id || !token) {
+      formSubmittingRef.current = false;
       setFormSubmitError("You must be logged in to continue.");
       return;
     }
@@ -1346,6 +1396,7 @@ export function OnboardingFlow() {
         e instanceof Error ? e.message : "Could not save your profile.",
       );
     } finally {
+      formSubmittingRef.current = false;
       setIsSubmittingForm(false);
     }
   };
@@ -2165,11 +2216,11 @@ export function OnboardingFlow() {
                       <GlassButton
                         type="button"
                         onClick={() => void submitFormAndOpenRevamp()}
-                        disabled={isSubmittingForm}
+                        disabled={!canProceedPrefs || isSubmittingForm}
                         contentClassName="flex items-center gap-2"
                         className={cn(
                           "transition-opacity",
-                          isSubmittingForm && "opacity-40",
+                          (!canProceedPrefs || isSubmittingForm) && "opacity-40",
                         )}
                       >
                         {isSubmittingForm ? (
