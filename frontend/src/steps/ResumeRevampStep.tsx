@@ -519,6 +519,7 @@ export function ResumeRevampStep({
               changes={revampResult.changes}
               compiledPdfUrl={revampResult.compiledPdfUrl}
               apiBaseUrl={apiBaseUrl}
+              authToken={authToken ?? undefined}
             />
           </motion.div>
         )}
