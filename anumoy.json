@@ -1,0 +1,183 @@
+{
+    "personalInfo": {
+      "firstName": "Arumoy",
+      "lastName": "Saha",
+      "email": "arumoy91@gmail.com",
+      "phoneNumber": "+353-830821151",
+      "location": "Dublin, Ireland"
+    },
+    "professionalSummary": "Business Analyst with 6+ years of experience across retail and digital operations, specializing in SDLC, business analytics, process optimization, and agile delivery.Experienced in working with complex operational datasets, translating business requirements into scalable workflows, and driving process improvements across cross-functional teams. Proficient in Python, SQL, ServiceNow, and Power BI with hands-on experience in workflow automation, reporting solutions, and data-driven decision support systems.",
+    "sectionOrder": [
+      "professionalSummary",
+      "skills",
+      "experience",
+      "education",
+      "custom-1776788773578",
+      "custom-1776788630915"
+    ],
+    "sectionNames": {
+      "professionalSummary": "Professional Summary",
+      "skills": "Technical Skills",
+      "workExperience": "Work Experience",
+      "projects": "Projects",
+      "education": "Education",
+      "experience": "Experience",
+      "custom-1776788630915": "Certification",
+      "custom-1776788773578": "Honours & Awards"
+    },
+    "education": [
+      {
+        "institution": "Maynooth University, Ireland",
+        "degree": "MSC in Business Analytics- (Secured2:1)",
+        "startDate": "Sep 2023",
+        "endDate": "Mar 2025",
+        "coursework": []
+      },
+      {
+        "institution": "IMT Hyderabad, India",
+        "degree": "MBA in Marketing -(Secured2:1)",
+        "startDate": "Jun 2016",
+        "endDate": "Mar 2018",
+        "coursework": []
+      },
+      {
+        "institution": "WBUT, India",
+        "degree": "B.Tech in IT - (Secured 1:1)",
+        "startDate": "Jun 2009",
+        "endDate": "Aug 2013",
+        "coursework": []
+      }
+    ],
+    "experience": [
+      {
+        "company": "EPM Group",
+        "position": "Project Coordinator",
+        "startDate": "Feb 2025",
+        "endDate": "Feb 2026",
+        "highlights": [
+          "Increased task fulfillment rate by 40% quarterly for financial clients, directly contributing to €1.2M in additional revenue growth per quarter.",
+          "Delivered end-to-end project execution, launching AI-integrated solutions that aligned with business goals and improved operational efficiency.",
+          "Raised customer NPS scores by 35% quarterly by ensuring on-time task completion and meeting client requirements.",
+          "Prioritized backlogs and facilitated scrum ceremonies, accelerating process improvements across cross-functional teams."
+        ]
+      },
+      {
+        "company": "PTSB (Contract-Morgan McKinley)",
+        "position": "Data Analyst (Procurement)",
+        "startDate": "Sep 2024",
+        "endDate": "Nov 2024",
+        "highlights": [
+          "Cleaned and validated supplier data on Project DORA, enabling accurate categorization and reducing reporting errors.",
+          "Analyzed third-party supplier spend using advanced Excel, delivering actionable insights that improved risk assessment for management."
+        ]
+      },
+      {
+        "company": "LTIMindtree",
+        "position": "Specialist Business Analyst",
+        "startDate": "Oct 2021",
+        "endDate": "Sep 2023",
+        "highlights": [
+          "Directed software teams to launch new brand sites, improving site loading speed by 60% and boosting search efficiency by 35%.",
+          "Delivered 23 data privacy sites for a major FMCG brand per quarter, standardizing design templates and optimizing product backlog prioritization.",
+          "Optimized risk management processes in ServiceNow, configuring changes that reduced manual intervention and improved compliance.",
+          "Consistently surpassed targets for capacity utilization and digital operations metrics across multiple projects.",
+          "Managed UAT and end-to-end testing phases, ensuring timely and high-quality project releases."
+        ]
+      },
+      {
+        "company": "Carbonate Pte Ltd",
+        "position": "Project analyst",
+        "startDate": "Feb 2020",
+        "endDate": "Oct 2021",
+        "highlights": [
+          "Authored product documentation that reduced IT issue resolution time by 45% per quarter and improved service delivery.",
+          "Cut product-level issues by 50% per quarter by coordinating feature launches with software teams and aligning with client requirements.",
+          "Managed 20+ client accounts, delivering end-to-end solutions on schedule through stakeholder coordination."
+        ]
+      },
+      {
+        "company": "Medlife",
+        "position": "Manager (Analytics & operations)",
+        "startDate": "Sep 2018",
+        "endDate": "Dec 2019",
+        "highlights": [
+          "Drove process improvement projects, reducing operational TAT by 20% and cutting annual city-level costs by 35%.",
+          "Identified and addressed customer needs, implementing solutions that enhanced team performance and client satisfaction.",
+          "Monitored city-level KPIs in sales, stock, audit, and security, ensuring store compliance and operational targets were met.",
+          "Resolved accounts receivable discrepancies promptly, minimizing financial irregularities and supporting audit readiness."
+        ]
+      },
+      {
+        "company": "Myntra",
+        "position": "Senior Analyst",
+        "startDate": "Nov 2014",
+        "endDate": "Jun 2016",
+        "highlights": [
+          "Improved order fulfillment by 60% and reduced return rates by 35% annually for key partners through process optimization.",
+          "Analyzed weekly KPIs and drove continuous improvement initiatives, generating reports that informed business decisions.",
+          "Increased vendor service delivery performance by 35% quarterly by monitoring and optimizing key partner relationships.",
+          "Mapped last-mile delivery workflows and integrated third-party systems, resolving bottlenecks and enabling real-time updates."
+        ]
+      }
+    ],
+    "skills": [],
+    "skillsDisplayMode": "lineTime",
+    "skillsLineTime": [
+      {
+        "heading": "Languages",
+        "skills": "Python, SQL, Java"
+      },
+      {
+        "heading": "Frameworks",
+        "skills": "Pandas, NumPy, scikit-learn, FastAPI"
+      },
+      {
+        "heading": "Databases",
+        "skills": "MySQL, PostgreSQL, MongoDB"
+      },
+      {
+        "heading": "Cloud & DevOps",
+        "skills": "AWS, Docker, Git, Jira, ServiceNow"
+      },
+      {
+        "heading": "Analytics",
+        "skills": "Tableau, Power BI, Advanced Excel"
+      }
+    ],
+    "projects": [],
+    "customSections": [
+      {
+        "id": "1776788630915",
+        "name": "Certification",
+        "events": [
+          {
+            "eventName": "Lean Six Sigma Green Belt – KPMG (India)",
+            "year": "",
+            "highlights": []
+          },
+          {
+            "eventName": "Certified Scrum Master (CSM) – Scrum Alliance",
+            "year": "",
+            "highlights": []
+          }
+        ]
+      },
+      {
+        "id": "1776788773578",
+        "name": "Honours & Awards",
+        "events": [
+          {
+            "eventName": "Gracias Award – Scrum Master of the Quarter ",
+            "year": "(Q1 2022–23), LTIMindtree",
+            "highlights": []
+          },
+          {
+            "eventName": "SPOT-ON Team Award – Project Manager ",
+            "year": "(Q1 2022–23), LTIMindtree",
+            "highlights": []
+          }
+        ]
+      }
+    ],
+    "deletedSections": []
+  }

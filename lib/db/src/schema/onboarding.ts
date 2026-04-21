@@ -70,8 +70,12 @@ export const onboardingSubmissionsTable = pgTable("onboarding_submissions", {
   aiQuestions: json("ai_questions"),
   /** Record<questionId, answer> submitted by user after reviewing AI questions */
   questionnaireAnswers: json("questionnaire_answers"),
-  /** { revampedResume, changes, compiledPdfUrl } stored after client-side revamp call */
-  revampResult: json("revamp_result"),
+  /** Revamped resume JSON used for compiler/review rendering. */
+  revampedResume: json("revamped_resume"),
+  /** Bullet-level change metadata for analysis cards. */
+  resumeChanges: json("resume_changes"),
+  /** Latest compiled PDF URL for the revamped resume. */
+  compiledPdfUrl: text("compiled_pdf_url"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });

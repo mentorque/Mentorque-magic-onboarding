@@ -138,7 +138,36 @@ function sanitizeForCompiler(resume: any): any {
   return r;
 }
 
-async function ensureCompiledPdfForSubmission<T extends { id: string; revampResult: any }>(
+function hydrateRevampResult<T extends {
+  revampedResume?: unknown;
+  resumeChanges?: unknown;
+  compiledPdfUrl?: unknown;
+}>(submission: T): T & {
+  revampResult: { revampedResume: unknown; changes: unknown[]; compiledPdfUrl: string | null } | null;
+} {
+  const revampedResume = submission?.revampedResume;
+  if (!revampedResume || typeof revampedResume !== "object") {
+    return { ...submission, revampResult: null };
+  }
+  const changes = Array.isArray(submission?.resumeChanges) ? submission.resumeChanges : [];
+  const compiledPdfUrl =
+    typeof submission?.compiledPdfUrl === "string" && submission.compiledPdfUrl.trim()
+      ? submission.compiledPdfUrl.trim()
+      : null;
+  return {
+    ...submission,
+    revampResult: {
+      revampedResume,
+      changes,
+      compiledPdfUrl,
+    },
+  };
+}
+
+async function ensureCompiledPdfForSubmission<T extends {
+  id: string;
+  revampResult: { revampedResume: any; changes?: any[]; compiledPdfUrl?: string | null } | null;
+}>(
   submission: T,
 ): Promise<T> {
   const rr = submission?.revampResult;
@@ -183,11 +212,22 @@ async function ensureCompiledPdfForSubmission<T extends { id: string; revampResu
   const nextRevampResult = { ...rr, compiledPdfUrl };
   const [updated] = await db
     .update(onboardingSubmissionsTable)
-    .set({ revampResult: nextRevampResult as any, updatedAt: new Date() } as any)
+    .set({
+      revampedResume: nextRevampResult.revampedResume as any,
+      resumeChanges: (nextRevampResult.changes ?? []) as any,
+      compiledPdfUrl,
+      updatedAt: new Date(),
+    } as any)
     .where(eq(onboardingSubmissionsTable.id, submission.id))
     .returning();
 
-  return (updated ?? { ...submission, revampResult: nextRevampResult }) as T;
+  return (updated ?? {
+    ...submission,
+    revampedResume: nextRevampResult.revampedResume,
+    resumeChanges: nextRevampResult.changes ?? [],
+    compiledPdfUrl,
+    revampResult: nextRevampResult,
+  }) as T;
 }
 
 router.post("/submissions", authenticateFirebaseToken, async (req: Request, res: Response) => {
@@ -491,6 +531,12 @@ router.post("/save-questionnaire", authenticateFirebaseToken, async (req: Reques
   if (!revampResult || typeof revampResult !== "object") {
     return res.status(400).json({ success: false, message: "revampResult is required." });
   }
+  const revampedResume = (revampResult as any).revampedResume;
+  const changes = Array.isArray((revampResult as any).changes) ? (revampResult as any).changes : [];
+  const compiledPdfUrl =
+    typeof (revampResult as any).compiledPdfUrl === "string"
+      ? (revampResult as any).compiledPdfUrl
+      : null;
 
   try {
     const [existing] = await db
@@ -504,23 +550,38 @@ router.post("/save-questionnaire", authenticateFirebaseToken, async (req: Reques
 
     const [submission] = await db
       .update(onboardingSubmissionsTable)
-      .set({ questionnaireAnswers: answers, revampResult, updatedAt: new Date() } as any)
+      .set({
+        questionnaireAnswers: answers,
+        revampedResume: revampedResume as any,
+        resumeChanges: changes as any,
+        compiledPdfUrl,
+        updatedAt: new Date(),
+      } as any)
       .where(eq(onboardingSubmissionsTable.id, submissionId))
       .returning();
 
-    return res.json({ success: true, submission });
+    return res.json({
+      success: true,
+      submission: hydrateRevampResult(submission as any),
+    });
   } catch (err: any) {
     console.error("[save-questionnaire]", err?.message);
     return res.status(500).json({ success: false, message: err?.message ?? "Failed to save questionnaire." });
   }
 });
 
-/** Mentor admin: persist `revamp_result` after studio AI apply (wildcard token). */
+/** Mentor admin: persist revamped resume fields after studio AI apply (wildcard token). */
 router.post("/save-revamp-result", authenticateFirebaseOrMentorAccess, async (req: Request, res: Response) => {
   const { revampResult } = req.body ?? {};
   if (!revampResult || typeof revampResult !== "object") {
     return res.status(400).json({ success: false, message: "revampResult is required." });
   }
+  const revampedResume = (revampResult as any).revampedResume;
+  const changes = Array.isArray((revampResult as any).changes) ? (revampResult as any).changes : [];
+  const compiledPdfUrl =
+    typeof (revampResult as any).compiledPdfUrl === "string"
+      ? (revampResult as any).compiledPdfUrl
+      : null;
   try {
     if (req.authMode === "mentor" && req.mentorAccess) {
       const role = String(req.mentorAccess.payload.role ?? "").toLowerCase();
@@ -530,13 +591,18 @@ router.post("/save-revamp-result", authenticateFirebaseOrMentorAccess, async (re
       const oid = req.mentorAccess.payload.onboardingId;
       const [submission] = await db
         .update(onboardingSubmissionsTable)
-        .set({ revampResult, updatedAt: new Date() } as any)
+        .set({
+          revampedResume: revampedResume as any,
+          resumeChanges: changes as any,
+          compiledPdfUrl,
+          updatedAt: new Date(),
+        } as any)
         .where(eq(onboardingSubmissionsTable.id, oid))
         .returning();
       if (!submission) {
         return res.status(404).json({ success: false, message: "Submission not found." });
       }
-      return res.json({ success: true, submission });
+      return res.json({ success: true, submission: hydrateRevampResult(submission as any) });
     }
     return res.status(403).json({
       success: false,
@@ -548,7 +614,7 @@ router.post("/save-revamp-result", authenticateFirebaseOrMentorAccess, async (re
   }
 });
 
-/** Mentor admin: regenerate high-quality `revamp_result.changes` from resume context. */
+/** Mentor admin: regenerate high-quality resume_changes from resume context. */
 router.post(
   "/regenerate-changes",
   authenticateFirebaseOrMentorAccess,
@@ -581,8 +647,7 @@ router.post(
       const uploadedResumeText =
         typeof submission.uploadedResumeText === "string" ? submission.uploadedResumeText : "";
       const parsedResume = submission.parsedResume;
-      const revamp = submission.revampResult as any;
-      const revampedResume = revamp?.revampedResume;
+      const revampedResume = submission.revampedResume as any;
       const adminPrompt =
         typeof req.body?.prompt === "string" ? req.body.prompt : "";
 
@@ -590,7 +655,7 @@ router.post(
         return res.status(400).json({
           success: false,
           message:
-            "Missing uploadedResumeText, parsedResume, or revampResult.revampedResume for regeneration.",
+            "Missing uploadedResumeText, parsedResume, or revamped_resume for regeneration.",
         });
       }
 
@@ -602,22 +667,26 @@ router.post(
       });
 
       const nextRevampResult = {
-        ...(revamp ?? {}),
         revampedResume,
         compiledPdfUrl:
-          typeof revamp?.compiledPdfUrl === "string" ? revamp.compiledPdfUrl : null,
+          typeof submission.compiledPdfUrl === "string" ? submission.compiledPdfUrl : null,
         changes,
       };
 
       const [updated] = await db
         .update(onboardingSubmissionsTable)
-        .set({ revampResult: nextRevampResult as any, updatedAt: new Date() } as any)
+        .set({
+          revampedResume: revampedResume as any,
+          resumeChanges: changes as any,
+          compiledPdfUrl: nextRevampResult.compiledPdfUrl,
+          updatedAt: new Date(),
+        } as any)
         .where(eq(onboardingSubmissionsTable.id, oid))
         .returning();
 
       return res.json({
         success: true,
-        submission: updated ?? submission,
+        submission: hydrateRevampResult((updated ?? submission) as any),
         revampResult: nextRevampResult,
       });
     } catch (err: any) {
@@ -647,7 +716,7 @@ async function handleGetMySubmission(req: Request, res: Response) {
           message: "Forbidden or submission not found.",
         });
       }
-      return res.json({ success: true, submission });
+      return res.json({ success: true, submission: hydrateRevampResult(submission as any) });
     }
 
     const [latest] = await db
@@ -657,7 +726,10 @@ async function handleGetMySubmission(req: Request, res: Response) {
       .orderBy(desc(onboardingSubmissionsTable.updatedAt))
       .limit(1);
 
-    return res.json({ success: true, submission: latest ?? null });
+    return res.json({
+      success: true,
+      submission: latest ? hydrateRevampResult(latest as any) : null,
+    });
   } catch (err: any) {
     return res.status(500).json({ success: false, message: err.message });
   }
@@ -693,7 +765,9 @@ router.get("/revamp-space-data", authenticateFirebaseOrMentorAccess, async (req:
           message: "Revamp space is not available for your account yet.",
         });
       }
-      const hydrated = await ensureCompiledPdfForSubmission(latest as any);
+      const hydrated = await ensureCompiledPdfForSubmission(
+        hydrateRevampResult(latest as any),
+      );
       const u = req.user as { name?: string; fullName?: string; email?: string | null };
       const displayName =
         (typeof u.name === "string" && u.name.trim()) ||
@@ -721,7 +795,9 @@ router.get("/revamp-space-data", authenticateFirebaseOrMentorAccess, async (req:
       if (!submission) {
         return res.status(404).json({ success: false, message: "Submission not found." });
       }
-      const hydrated = await ensureCompiledPdfForSubmission(submission as any);
+      const hydrated = await ensureCompiledPdfForSubmission(
+        hydrateRevampResult(submission as any),
+      );
       return res.json({
         success: true,
         submission: hydrated,
@@ -755,7 +831,7 @@ router.get("/submissions/:id", async (req: Request, res: Response) => {
         .json({ success: false, message: "Onboarding submission not found." });
     }
 
-    return res.json({ success: true, submission });
+    return res.json({ success: true, submission: hydrateRevampResult(submission as any) });
   } catch (err: any) {
     return res.status(500).json({ success: false, message: err.message });
   }
@@ -820,7 +896,7 @@ router.patch("/submissions/:id", authenticateFirebaseToken, async (req: Request,
         .json({ success: false, message: "Onboarding submission not found." });
     }
 
-    return res.json({ success: true, submission });
+    return res.json({ success: true, submission: hydrateRevampResult(submission as any) });
   } catch (err: any) {
     return res.status(500).json({ success: false, message: err.message });
   }
@@ -945,7 +1021,9 @@ router.get("/admin/:token/list", async (req: Request, res: Response) => {
       inputStatus: string;
       aiQuestions: unknown;
       questionnaireAnswers: unknown;
-      revampResult: unknown;
+      revampedResume: unknown;
+      resumeChanges: unknown;
+      compiledPdfUrl: string | null;
       updatedAt: string;
     }>`
       select
@@ -957,7 +1035,9 @@ router.get("/admin/:token/list", async (req: Request, res: Response) => {
         os.input_status as "inputStatus",
         os.ai_questions as "aiQuestions",
         os.questionnaire_answers as "questionnaireAnswers",
-        os.revamp_result as "revampResult",
+        os.revamped_resume as "revampedResume",
+        os.resume_changes as "resumeChanges",
+        os.compiled_pdf_url as "compiledPdfUrl",
         os.updated_at as "updatedAt"
       from onboarding_submissions os
       left join "User" u on u.id = os.user_id
@@ -971,7 +1051,9 @@ router.get("/admin/:token/list", async (req: Request, res: Response) => {
       inputStatus: string;
       aiQuestions: unknown;
       questionnaireAnswers: unknown;
-      revampResult: unknown;
+      revampedResume: unknown;
+      resumeChanges: unknown;
+      compiledPdfUrl: string | null;
       updatedAt: string;
     }>;
 
@@ -979,7 +1061,10 @@ router.get("/admin/:token/list", async (req: Request, res: Response) => {
       const hasAiQuestions = Array.isArray(row.aiQuestions) && row.aiQuestions.length > 0;
       const hasQuestionnaireAnswers =
         row.questionnaireAnswers && typeof row.questionnaireAnswers === "object" && Object.keys(row.questionnaireAnswers).length > 0;
-      const hasRevampResult = row.revampResult && typeof row.revampResult === "object" && Object.keys(row.revampResult).length > 0;
+      const hasRevampResult =
+        Boolean(row.revampedResume && typeof row.revampedResume === "object") ||
+        (Array.isArray(row.resumeChanges) && row.resumeChanges.length > 0) ||
+        Boolean(row.compiledPdfUrl);
 
       let progressStep: string;
       if (row.inputStatus === "input_complete" && hasRevampResult) {

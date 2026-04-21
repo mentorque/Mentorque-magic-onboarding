@@ -1,5 +1,5 @@
 /**
- * Backfill `questionnaire_answers` + `revamp_result` for submissions that never
+ * Backfill `questionnaire_answers` + revamped resume columns for submissions that never
  * completed the questionnaire flow (same data shape as POST /api/onboarding/save-questionnaire).
  *
  * Usage (from repo root, with env loaded):
@@ -12,7 +12,7 @@
  * Options:
  *   --submission-id=<id>   Repeatable. Required unless SUBMISSION_IDS is set (comma-separated).
  *   --dry-run                Print actions only; no DB write, no AI/compile calls.
- *   --force                  Overwrite non-null revamp_result / questionnaire_answers.
+ *   --force                  Overwrite non-null revamped columns / questionnaire_answers.
  *   --answers-json=<path>    Optional JSON object { [questionId]: answerString } matching QuestionsForm storage.
  *
  * Env: `DATABASE_URL` must be visible to the Node process. If you set vars on separate shell lines
@@ -220,9 +220,12 @@ async function backfillOne(
     !Array.isArray(existingAnswers) &&
     Object.keys(existingAnswers).length > 0;
 
-  const existingRevamp = row.revampResult as { revampedResume?: unknown } | null;
-  if (existingRevamp && !opts.force) {
-    console.log(`[${submissionId}] skip: revamp_result already set (use --force to overwrite)`);
+  const hasExistingRevamp =
+    Boolean(row.revampedResume && typeof row.revampedResume === "object") ||
+    (Array.isArray(row.resumeChanges) && row.resumeChanges.length > 0) ||
+    (typeof row.compiledPdfUrl === "string" && row.compiledPdfUrl.trim().length > 0);
+  if (hasExistingRevamp && !opts.force) {
+    console.log(`[${submissionId}] skip: revamped columns already set (use --force to overwrite)`);
     return;
   }
 
@@ -259,13 +262,13 @@ async function backfillOne(
   console.log(`[${submissionId}] compiling PDF…`);
   const compiledPdfUrl = await compileRevampedPdf(revampedResume);
 
-  const revampResult = { revampedResume, changes, compiledPdfUrl };
-
   await db
     .update(onboardingSubmissionsTable)
     .set({
       questionnaireAnswers: answers as any,
-      revampResult: revampResult as any,
+      revampedResume: revampedResume as any,
+      resumeChanges: changes as any,
+      compiledPdfUrl,
       updatedAt: new Date(),
     })
     .where(eq(onboardingSubmissionsTable.id, submissionId));
