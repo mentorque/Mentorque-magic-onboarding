@@ -743,8 +743,17 @@ export function PdfAnnotator({
 
   // ── Fetch existing highlights ───────────────────────────────────────────────
   useEffect(() => {
-    if (!documentId) return;
-    fetch(withApiBase(`/api/highlights?documentUrl=${encodeURIComponent(documentId)}`))
+    const q = new URLSearchParams();
+    // Keep resolved comments visible forever across regenerated PDFs.
+    q.set("includeResolved", "true");
+    if (annotation?.onboardingId) {
+      q.set("onboardingId", annotation.onboardingId);
+    } else if (documentId) {
+      q.set("documentUrl", documentId);
+    } else {
+      return;
+    }
+    fetch(withApiBase(`/api/highlights?${q.toString()}`))
       .then((r) => r.json())
       .then((d) => {
         if (d.success && Array.isArray(d.highlights)) {
@@ -752,7 +761,7 @@ export function PdfAnnotator({
         }
       })
       .catch(() => {});
-  }, [documentId, highlightsRefreshSignal]);
+  }, [documentId, annotation?.onboardingId, highlightsRefreshSignal]);
 
   const dismissPending = useCallback(() => {
     setPending(null);

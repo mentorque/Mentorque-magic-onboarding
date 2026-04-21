@@ -412,6 +412,19 @@ function KeyChangesCard({ changes, onInsightFocus }: KeyChangesCardProps) {
   const [animAction, setAnimAction] = useState<"slide" | "flip">("slide");
   const [displayIdx, setDisplayIdx] = useState(0);
 
+  /** Admin "Make Changes" can replace `changes` with a new array; keep index in range. */
+  useEffect(() => {
+    if (changes.length === 0) {
+      setIdx(0);
+      setDisplayIdx(0);
+      setIsFlipped(false);
+      onInsightFocus(null);
+      return;
+    }
+    setIdx((i) => Math.min(i, changes.length - 1));
+    setDisplayIdx((i) => Math.min(i, changes.length - 1));
+  }, [changes]);
+
   const visible = changes.length > 0 ? changes[displayIdx] : null;
 
   const go = (d: number) => {
@@ -1044,6 +1057,14 @@ function SectionAnalysis({
   const [sectionIdx, setSectionIdx] = useState(0);
   const [dir, setDir] = useState(1);
 
+  useEffect(() => {
+    setSectionIdx((i) =>
+      sectionsWithChanges.length === 0
+        ? 0
+        : Math.min(i, sectionsWithChanges.length - 1),
+    );
+  }, [sectionsWithChanges.length, changes.length]);
+
   const go = (d: number) => {
     if (sectionsWithChanges.length <= 1) return;
     setDir(d);
@@ -1169,7 +1190,17 @@ export function ComparisonView({
   const [focusHighlightId, setFocusHighlightId] = useState<string | null>(null);
   const [focusSignal, setFocusSignal] = useState(0);
   const [insightFocusText, setInsightFocusText] = useState<string | null>(null);
-  const documentId = compiledPdfUrl ?? "resume-draft";
+  /** After admin "Make Changes", merge API result into UI (parent often does not pass `onRevampResultApplied`). */
+  const [studioApplyResult, setStudioApplyResult] = useState<RevampResult | null>(null);
+
+  const displayRevamped = studioApplyResult?.revampedResume ?? revampedResume;
+  const displayChanges = studioApplyResult?.changes ?? changes;
+  const displayPdf = studioApplyResult?.compiledPdfUrl ?? compiledPdfUrl ?? null;
+  const documentId = displayPdf ?? "resume-draft";
+
+  useEffect(() => {
+    setStudioApplyResult(null);
+  }, [compiledPdfUrl]);
 
   const isAdminAnnotator =
     (annotation?.role ?? "").toLowerCase() === "admin";
@@ -1177,10 +1208,11 @@ export function ComparisonView({
   const loadStudioThreads = useCallback(async () => {
     try {
       const q = new URLSearchParams();
-      q.set("documentUrl", documentId);
       q.set("includeResolved", "true");
       if (annotation?.onboardingId) {
         q.set("onboardingId", annotation.onboardingId);
+      } else {
+        q.set("documentUrl", documentId);
       }
       const res = await fetch(withApiBase(`/api/highlights?${q.toString()}`));
       const data = await res.json();
@@ -1313,9 +1345,9 @@ export function ComparisonView({
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            documentUrl: compiledPdfUrl ?? documentId,
+            documentUrl: documentId,
             onboardingId: annotation.onboardingId,
-            currentRevampedResume: revampedResume,
+            currentRevampedResume: displayRevamped,
           }),
         },
       );
@@ -1327,6 +1359,7 @@ export function ComparisonView({
         return;
       }
       const next = data.revampResult as RevampResult;
+      setStudioApplyResult(next);
       onRevampResultApplied?.(next);
 
       const saveRes = await fetch(withApiBase("/api/onboarding/save-revamp-result"), {
@@ -1359,9 +1392,8 @@ export function ComparisonView({
     authToken,
     annotation?.onboardingId,
     activeStudioThreads.length,
-    compiledPdfUrl,
     documentId,
-    revampedResume,
+    displayRevamped,
     onRevampResultApplied,
     loadStudioThreads,
   ]);
@@ -1506,12 +1538,12 @@ export function ComparisonView({
         <div className="flex flex-col items-center justify-start overflow-y-auto overflow-x-auto custom-scrollbar px-1 py-2">
           <PdfAnnotator
             pdfUrl={
-              compiledPdfUrl
-                ? `${apiBaseUrl}/api/resume-revamp/proxy-pdf?url=${encodeURIComponent(compiledPdfUrl)}`
+              displayPdf
+                ? `${apiBaseUrl}/api/resume-revamp/proxy-pdf?url=${encodeURIComponent(displayPdf)}`
                 : null
             }
-            revampedResume={revampedResume}
-            documentId={compiledPdfUrl ?? "resume-draft"}
+            revampedResume={displayRevamped}
+            documentId={documentId}
             focusHighlightId={focusHighlightId}
             focusSignal={focusSignal}
             focusedInsightText={insightFocusText}
@@ -1570,9 +1602,9 @@ export function ComparisonView({
                   </p>
                 </div>
 
-                {compiledPdfUrl && (
+                {displayPdf && (
                   <a
-                    href={compiledPdfUrl}
+                    href={displayPdf}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="group flex items-center gap-2.5 px-4 py-2 rounded-xl bg-white/[0.05] border border-white/10 hover:bg-white/[0.1] hover:border-white/20 transition-all active:scale-95 shadow-lg"
@@ -1588,16 +1620,16 @@ export function ComparisonView({
               {/* Global Analysis Modules */}
               <div className="grid grid-cols-1 gap-6 shrink-0">
                 <MetricsCard
-                  revampedResume={revampedResume}
+                  revampedResume={displayRevamped}
                   originalResume={originalResume}
                 />
-                <CompanyFitCard compiledPdfUrl={compiledPdfUrl} />
+                <CompanyFitCard compiledPdfUrl={displayPdf} />
               </div>
 
               {/* Section-specific Analysis */}
               <div className="shrink-0">
                 <SectionAnalysis
-                  changes={changes}
+                  changes={displayChanges}
                   onInsightFocus={setInsightFocusText}
                 />
               </div>
