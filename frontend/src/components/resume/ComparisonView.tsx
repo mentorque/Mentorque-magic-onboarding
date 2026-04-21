@@ -31,6 +31,9 @@ import {
   Reply,
   LocateFixed,
   Loader2,
+  Pencil,
+  Check,
+  X,
 } from "lucide-react";
 import {
   SiGoogle,
@@ -420,6 +423,11 @@ const CONTENT_STAGGER_VARIANTS = {
 
 interface KeyChangesCardProps {
   changes: BulletChange[];
+  canEdit?: boolean;
+  onEditChange?: (
+    changeId: string,
+    payload: { original: string; revised: string },
+  ) => Promise<void>;
   canGenerate?: boolean;
   isGenerating?: boolean;
   onGenerate?: () => void;
@@ -427,6 +435,8 @@ interface KeyChangesCardProps {
 
 function KeyChangesCard({
   changes,
+  canEdit = false,
+  onEditChange,
   canGenerate = false,
   isGenerating = false,
   onGenerate,
@@ -436,6 +446,10 @@ function KeyChangesCard({
   const [isFlipped, setIsFlipped] = useState(false);
   const [animAction, setAnimAction] = useState<"slide" | "flip">("slide");
   const [displayIdx, setDisplayIdx] = useState(0);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editOriginal, setEditOriginal] = useState("");
+  const [editRevised, setEditRevised] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
 
   /** Admin "Make Changes" can replace `changes` with a new array; keep index in range. */
   useEffect(() => {
@@ -443,6 +457,7 @@ function KeyChangesCard({
       setIdx(0);
       setDisplayIdx(0);
       setIsFlipped(false);
+      setIsEditing(false);
       return;
     }
     setIdx((i) => Math.min(i, changes.length - 1));
@@ -462,11 +477,40 @@ function KeyChangesCard({
     if (isFlipped) {
       setIsFlipped(false);
     }
+    setIsEditing(false);
   };
 
   const toggleFlip = () => {
     setAnimAction("flip");
     setIsFlipped((prev) => !prev);
+    setIsEditing(false);
+  };
+
+  const beginEdit = () => {
+    if (!visible) return;
+    setEditOriginal(visible.original ?? "");
+    setEditRevised(visible.revised ?? "");
+    setIsEditing(true);
+  };
+
+  const cancelEdit = () => {
+    setIsEditing(false);
+    setEditOriginal("");
+    setEditRevised("");
+  };
+
+  const saveEdit = async () => {
+    if (!visible?.id || !onEditChange) return;
+    setEditSaving(true);
+    try {
+      await onEditChange(visible.id, {
+        original: editOriginal.trim(),
+        revised: editRevised.trim(),
+      });
+      cancelEdit();
+    } finally {
+      setEditSaving(false);
+    }
   };
 
   return (
@@ -532,18 +576,27 @@ function KeyChangesCard({
                     <p className="text-[11px] font-bold uppercase tracking-widest text-red-400/60 mb-1.5">
                       Original
                     </p>
-                    <p className="text-sm leading-relaxed font-normal text-white/50 relative">
-                      <span
-                        className="relative z-10"
-                        style={{
-                          textDecoration: "line-through",
-                          textDecorationColor: "rgba(248,113,113,0.8)",
-                          textDecorationThickness: "2px",
-                        }}
-                      >
-                        {visible?.original}
-                      </span>
-                    </p>
+                    {isEditing ? (
+                      <textarea
+                        value={editOriginal}
+                        onChange={(e) => setEditOriginal(e.target.value)}
+                        rows={4}
+                        className="w-full resize-y rounded-xl border border-red-300/20 bg-black/30 px-3 py-2 text-sm leading-relaxed text-white/80 focus:outline-none focus:ring-2 focus:ring-red-400/30"
+                      />
+                    ) : (
+                      <p className="text-sm leading-relaxed font-normal text-white/50 relative">
+                        <span
+                          className="relative z-10"
+                          style={{
+                            textDecoration: "line-through",
+                            textDecorationColor: "rgba(248,113,113,0.8)",
+                            textDecorationThickness: "2px",
+                          }}
+                        >
+                          {visible?.original}
+                        </span>
+                      </p>
+                    )}
                   </motion.div>
 
                   {/* Revised */}
@@ -559,9 +612,18 @@ function KeyChangesCard({
                     <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-400/80 mb-1.5">
                       Optimized
                     </p>
-                    <p className="text-base text-white/90 leading-relaxed font-medium relative">
-                      <span className="relative z-10">{visible?.revised}</span>
-                    </p>
+                    {isEditing ? (
+                      <textarea
+                        value={editRevised}
+                        onChange={(e) => setEditRevised(e.target.value)}
+                        rows={4}
+                        className="w-full resize-y rounded-xl border border-emerald-300/20 bg-black/30 px-3 py-2 text-sm leading-relaxed text-white/90 focus:outline-none focus:ring-2 focus:ring-emerald-400/30"
+                      />
+                    ) : (
+                      <p className="text-base text-white/90 leading-relaxed font-medium relative">
+                        <span className="relative z-10">{visible?.revised}</span>
+                      </p>
+                    )}
                   </motion.div>
                 </div>
               ) : (
@@ -665,20 +727,53 @@ function KeyChangesCard({
 
           {/* Controls: flip + pagination */}
           <div className="flex items-center gap-2">
-            {/* Flip / Insight toggle */}
-            <motion.button
-              onClick={toggleFlip}
-              whileTap={{ scale: 0.88 }}
-              title={isFlipped ? "Back to diff" : "Show insight"}
-              className={cn(
-                "p-2.5 rounded-xl border transition-all",
-                isFlipped
-                  ? "bg-amber-500/15 border-amber-500/40 text-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.2)]"
-                  : "border-white/10 bg-white/5 text-white/40 hover:text-amber-400 hover:bg-amber-500/10 hover:border-amber-500/30",
-              )}
-            >
-              <Lightbulb className="w-4 h-4" />
-            </motion.button>
+            {isEditing ? (
+              <>
+                <button
+                  onClick={cancelEdit}
+                  disabled={editSaving}
+                  className="p-2.5 rounded-xl border border-white/15 bg-white/[0.05] text-white/60 hover:text-white transition-all disabled:opacity-40"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => void saveEdit()}
+                  disabled={editSaving || !editOriginal.trim() || !editRevised.trim()}
+                  className="p-2.5 rounded-xl border border-emerald-400/35 bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25 transition-all disabled:opacity-40"
+                >
+                  {editSaving ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Check className="w-4 h-4" />
+                  )}
+                </button>
+              </>
+            ) : (
+              <>
+                {canEdit && !isFlipped && (
+                  <button
+                    onClick={beginEdit}
+                    className="p-2.5 rounded-xl border border-cyan-400/30 bg-cyan-500/10 text-cyan-200 hover:bg-cyan-500/20 transition-all"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                )}
+                {/* Flip / Insight toggle */}
+                <motion.button
+                  onClick={toggleFlip}
+                  whileTap={{ scale: 0.88 }}
+                  title={isFlipped ? "Back to diff" : "Show insight"}
+                  className={cn(
+                    "p-2.5 rounded-xl border transition-all",
+                    isFlipped
+                      ? "bg-amber-500/15 border-amber-500/40 text-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.2)]"
+                      : "border-white/10 bg-white/5 text-white/40 hover:text-amber-400 hover:bg-amber-500/10 hover:border-amber-500/30",
+                  )}
+                >
+                  <Lightbulb className="w-4 h-4" />
+                </motion.button>
+              </>
+            )}
 
             {/* Divider */}
             <div className="w-px h-5 bg-white/10" />
@@ -1080,11 +1175,18 @@ function MetricsCard({
 
 function SectionAnalysis({
   changes,
+  canEdit = false,
+  onEditChange,
   canGenerate,
   isGenerating,
   onGenerate,
 }: {
   changes: BulletChange[];
+  canEdit?: boolean;
+  onEditChange?: (
+    changeId: string,
+    payload: { original: string; revised: string },
+  ) => Promise<void>;
   canGenerate?: boolean;
   isGenerating?: boolean;
   onGenerate?: () => void;
@@ -1217,6 +1319,8 @@ function SectionAnalysis({
           >
             <KeyChangesCard
               changes={sectionChanges}
+              canEdit={canEdit}
+              onEditChange={onEditChange}
               canGenerate={canGenerate}
               isGenerating={isGenerating}
               onGenerate={onGenerate}
@@ -1249,6 +1353,7 @@ export function ComparisonView({
   const [studioReplyPosting, setStudioReplyPosting] = useState(false);
   const [studioApplyBusy, setStudioApplyBusy] = useState(false);
   const [studioRegenerateBusy, setStudioRegenerateBusy] = useState(false);
+  const [studioPdfRegenerateBusy, setStudioPdfRegenerateBusy] = useState(false);
   const [studioApplyError, setStudioApplyError] = useState<string | null>(null);
   const [regenModalOpen, setRegenModalOpen] = useState(false);
   const [regenPromptDraft, setRegenPromptDraft] = useState("");
@@ -1561,6 +1666,99 @@ export function ComparisonView({
     }
   }, [authToken, annotation?.onboardingId, onRevampResultApplied]);
 
+  const regenerateStudioPdf = useCallback(async () => {
+    if (!authToken?.trim()) {
+      setStudioApplyError("Sign in with a valid access token to regenerate PDF.");
+      return;
+    }
+    if (!annotation?.onboardingId) {
+      setStudioApplyError("Missing onboarding context.");
+      return;
+    }
+    setStudioPdfRegenerateBusy(true);
+    setStudioApplyError(null);
+    try {
+      const res = await fetch(withApiBase("/api/onboarding/regenerate-pdf"), {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${authToken.trim()}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ onboardingId: annotation.onboardingId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.success) {
+        setStudioApplyError(
+          typeof data?.message === "string"
+            ? data.message
+            : "Could not regenerate PDF.",
+        );
+        return;
+      }
+      if (typeof data.compiledPdfUrl === "string") {
+        setStudioApplyResult((prev) => ({
+          revampedResume: prev?.revampedResume ?? displayRevamped,
+          changes: Array.isArray(data?.changes)
+            ? data.changes
+            : prev?.changes ?? displayChanges,
+          compiledPdfUrl: data.compiledPdfUrl,
+        }));
+      }
+    } catch (e: unknown) {
+      setStudioApplyError(
+        e instanceof Error ? e.message : "Network error while regenerating PDF.",
+      );
+    } finally {
+      setStudioPdfRegenerateBusy(false);
+    }
+  }, [authToken, annotation?.onboardingId, displayChanges, displayRevamped]);
+
+  const updateStrategicEnhancementText = useCallback(
+    async (
+      changeId: string,
+      payload: { original: string; revised: string },
+    ) => {
+      const nextChanges = displayChanges.map((c) =>
+        c.id === changeId
+          ? {
+              ...c,
+              original: payload.original,
+              revised: payload.revised,
+            }
+          : c,
+      );
+      setStudioApplyResult((prev) => ({
+        revampedResume: prev?.revampedResume ?? displayRevamped,
+        changes: nextChanges,
+        compiledPdfUrl: prev?.compiledPdfUrl ?? displayPdf,
+      }));
+      if (!authToken?.trim() || !annotation?.onboardingId) {
+        setStudioApplyError("Missing auth/onboarding context for saving changes.");
+        return;
+      }
+      const res = await fetch(withApiBase("/api/onboarding/update-resume-changes"), {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${authToken.trim()}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          onboardingId: annotation.onboardingId,
+          changes: nextChanges,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.success) {
+        throw new Error(
+          typeof data?.message === "string"
+            ? data.message
+            : "Could not save strategic enhancement edits.",
+        );
+      }
+    },
+    [annotation?.onboardingId, authToken, displayChanges, displayPdf, displayRevamped],
+  );
+
   function renderStudioThreadCard(
     thread: StudioThreadItem,
     resolvedLook: boolean,
@@ -1802,6 +2000,8 @@ export function ComparisonView({
               <div className="shrink-0">
                 <SectionAnalysis
                   changes={displayChanges}
+                  canEdit={isAdminAnnotator}
+                  onEditChange={updateStrategicEnhancementText}
                   canGenerate={isAdminAnnotator}
                   isGenerating={studioRegenerateBusy}
                   onGenerate={() => {
@@ -1836,22 +2036,55 @@ export function ComparisonView({
 
                 {isAdminAnnotator && (
                   <div className="mb-5 space-y-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void applyMakeChangesFromStudio()}
+                        disabled={
+                          studioApplyBusy ||
+                          activeStudioThreads.length === 0 ||
+                          !authToken?.trim()
+                        }
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-400/35 bg-emerald-500/15 px-4 py-3 text-xs font-black uppercase tracking-[0.2em] text-emerald-100 shadow-[0_0_24px_rgba(16,185,129,0.12)] transition-all hover:bg-emerald-500/25 disabled:pointer-events-none disabled:opacity-40"
+                      >
+                        {studioApplyBusy ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-4 w-4" />
+                        )}
+                        Make Changes
+                      </button>
+                      <a
+                        href={
+                          annotation?.onboardingId
+                            ? `https://tools.mentorquedu.com/?onboardinsubmisionid=${encodeURIComponent(annotation.onboardingId)}&token=tkn_8fK29xLmQ7pV3nZdR6cY1uHs`
+                            : undefined
+                        }
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={cn(
+                          "inline-flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-xs font-black uppercase tracking-[0.2em] transition-all",
+                          annotation?.onboardingId
+                            ? "border-cyan-400/35 bg-cyan-500/15 text-cyan-100 hover:bg-cyan-500/25"
+                            : "border-white/15 bg-white/[0.05] text-white/40 pointer-events-none",
+                        )}
+                      >
+                        <ArrowUpRight className="h-4 w-4" />
+                        Edit Resume
+                      </a>
+                    </div>
                     <button
                       type="button"
-                      onClick={() => void applyMakeChangesFromStudio()}
-                      disabled={
-                        studioApplyBusy ||
-                        activeStudioThreads.length === 0 ||
-                        !authToken?.trim()
-                      }
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-400/35 bg-emerald-500/15 px-4 py-3 text-xs font-black uppercase tracking-[0.2em] text-emerald-100 shadow-[0_0_24px_rgba(16,185,129,0.12)] transition-all hover:bg-emerald-500/25 disabled:pointer-events-none disabled:opacity-40"
+                      onClick={() => void regenerateStudioPdf()}
+                      disabled={studioPdfRegenerateBusy || !authToken?.trim()}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-blue-400/35 bg-blue-500/15 px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.2em] text-blue-100 transition-all hover:bg-blue-500/25 disabled:pointer-events-none disabled:opacity-40"
                     >
-                      {studioApplyBusy ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                      {studioPdfRegenerateBusy ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       ) : (
-                        <Sparkles className="h-4 w-4" />
+                        <FileText className="h-3.5 w-3.5" />
                       )}
-                      Make Changes
+                      Regenerate PDF
                     </button>
                     {studioApplyError && (
                       <p className="text-xs text-red-300/95 leading-relaxed">

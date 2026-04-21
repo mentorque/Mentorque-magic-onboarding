@@ -614,6 +614,144 @@ router.post("/save-revamp-result", authenticateFirebaseOrMentorAccess, async (re
   }
 });
 
+/** Mentor admin: overwrite resume_changes for onboarding submission. */
+router.post(
+  "/update-resume-changes",
+  authenticateFirebaseOrMentorAccess,
+  async (req: Request, res: Response) => {
+    try {
+      if (req.authMode !== "mentor" || !req.mentorAccess) {
+        return res.status(403).json({ success: false, message: "Mentor access required." });
+      }
+      const role = String(req.mentorAccess.payload.role ?? "").toLowerCase();
+      if (role !== "admin") {
+        return res.status(403).json({ success: false, message: "Admin reviewer role required." });
+      }
+
+      const tokenOid = req.mentorAccess.payload.onboardingId;
+      const bodyOid =
+        typeof req.body?.onboardingId === "string" ? req.body.onboardingId.trim() : "";
+      const oid = bodyOid || tokenOid;
+      if (oid !== tokenOid) {
+        return res.status(403).json({ success: false, message: "onboardingId mismatch." });
+      }
+      const changes = req.body?.changes;
+      if (!Array.isArray(changes)) {
+        return res.status(400).json({ success: false, message: "changes array is required." });
+      }
+
+      const [updated] = await db
+        .update(onboardingSubmissionsTable)
+        .set({ resumeChanges: changes as any, updatedAt: new Date() } as any)
+        .where(eq(onboardingSubmissionsTable.id, oid))
+        .returning();
+
+      if (!updated) {
+        return res.status(404).json({ success: false, message: "Submission not found." });
+      }
+      return res.json({
+        success: true,
+        changes,
+        submission: hydrateRevampResult(updated as any),
+      });
+    } catch (err: any) {
+      console.error("[update-resume-changes]", err?.message);
+      return res.status(500).json({
+        success: false,
+        message: err?.message ?? "Failed to update resume changes.",
+      });
+    }
+  },
+);
+
+/** Mentor admin: force recompile PDF from revamped_resume and persist compiled_pdf_url. */
+router.post(
+  "/regenerate-pdf",
+  authenticateFirebaseOrMentorAccess,
+  async (req: Request, res: Response) => {
+    try {
+      if (req.authMode !== "mentor" || !req.mentorAccess) {
+        return res.status(403).json({ success: false, message: "Mentor access required." });
+      }
+      const role = String(req.mentorAccess.payload.role ?? "").toLowerCase();
+      if (role !== "admin") {
+        return res.status(403).json({ success: false, message: "Admin reviewer role required." });
+      }
+      const tokenOid = req.mentorAccess.payload.onboardingId;
+      const bodyOid =
+        typeof req.body?.onboardingId === "string" ? req.body.onboardingId.trim() : "";
+      const oid = bodyOid || tokenOid;
+      if (oid !== tokenOid) {
+        return res.status(403).json({ success: false, message: "onboardingId mismatch." });
+      }
+      const [submission] = await db
+        .select()
+        .from(onboardingSubmissionsTable)
+        .where(eq(onboardingSubmissionsTable.id, oid));
+      if (!submission) {
+        return res.status(404).json({ success: false, message: "Submission not found." });
+      }
+      if (!submission.revampedResume || typeof submission.revampedResume !== "object") {
+        return res.status(400).json({ success: false, message: "Missing revamped_resume for this submission." });
+      }
+      const uploadedResumeText =
+        typeof submission.uploadedResumeText === "string" ? submission.uploadedResumeText : "";
+      const parsedResume = submission.parsedResume;
+
+      const compilerBaseUrl = (process.env.RESUME_COMPILER_URL || "http://localhost:5001").replace(
+        /\/$/,
+        "",
+      );
+      const compileRes = await fetch(`${compilerBaseUrl}/api/resume/compile`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(sanitizeForCompiler(submission.revampedResume)),
+      });
+      if (!compileRes.ok) {
+        const errBody = await compileRes.text();
+        throw new Error(`ResumeCompiler returned ${compileRes.status}: ${errBody.slice(0, 300)}`);
+      }
+      const data = (await compileRes.json()) as { url: string };
+      const compiledPdfUrl = data.url?.startsWith("http")
+        ? data.url
+        : `${compilerBaseUrl}${data.url}`;
+
+      // Keep studio cards in sync: regenerate bullet-level changes against latest context.
+      const regeneratedChanges =
+        uploadedResumeText.trim() && parsedResume
+          ? await regenerateStudioChanges({
+              uploadedResumeText,
+              parsedResume,
+              revampedResume: submission.revampedResume,
+              adminPrompt: "",
+            })
+          : Array.isArray(submission.resumeChanges)
+            ? submission.resumeChanges
+            : [];
+
+      const [updated] = await db
+        .update(onboardingSubmissionsTable)
+        .set({
+          compiledPdfUrl,
+          resumeChanges: regeneratedChanges as any,
+          updatedAt: new Date(),
+        } as any)
+        .where(eq(onboardingSubmissionsTable.id, oid))
+        .returning();
+
+      return res.json({
+        success: true,
+        compiledPdfUrl,
+        changes: regeneratedChanges,
+        submission: hydrateRevampResult((updated ?? submission) as any),
+      });
+    } catch (err: any) {
+      console.error("[regenerate-pdf]", err?.message);
+      return res.status(500).json({ success: false, message: err?.message ?? "Failed to regenerate PDF." });
+    }
+  },
+);
+
 /** Mentor admin: regenerate high-quality resume_changes from resume context. */
 router.post(
   "/regenerate-changes",
