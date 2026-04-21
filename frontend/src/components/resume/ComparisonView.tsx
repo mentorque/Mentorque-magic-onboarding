@@ -1592,17 +1592,19 @@ export function ComparisonView({
             <Reply className="w-3.5 h-3.5" />
             Reply
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              setFocusHighlightId(thread.highlightId);
-              setFocusSignal((n) => n + 1);
-            }}
-            className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-widest bg-white/[0.06] text-white/70 border border-white/10 hover:bg-white/[0.1] hover:text-white transition-all"
-          >
-            <LocateFixed className="w-3.5 h-3.5" />
-            On PDF
-          </button>
+          {!resolvedLook && (
+            <button
+              type="button"
+              onClick={() => {
+                setFocusHighlightId(thread.highlightId);
+                setFocusSignal((n) => n + 1);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-widest bg-white/[0.06] text-white/70 border border-white/10 hover:bg-white/[0.1] hover:text-white transition-all"
+            >
+              <LocateFixed className="w-3.5 h-3.5" />
+              On PDF
+            </button>
+          )}
         </div>
 
         {replyOpen && (
