@@ -104,6 +104,16 @@ interface StudioThreadItem {
   }>;
 }
 
+interface StudioAuthorFilterOption {
+  key: string;
+  label: string;
+  shortLabel: string;
+}
+
+function normalizeStudioAuthorKey(v: string): string {
+  return v.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
 function commentAuthorLabel(c: {
   type: "ai" | "human";
   author?: string;
@@ -1246,6 +1256,7 @@ export function ComparisonView({
   const [focusHighlightId, setFocusHighlightId] = useState<string | null>(null);
   const [focusSignal, setFocusSignal] = useState(0);
   const [focusStudioHighlightId, setFocusStudioHighlightId] = useState<string | null>(null);
+  const [studioAuthorFilter, setStudioAuthorFilter] = useState<string>("all");
   /** After admin "Make Changes", merge API result into UI (parent often does not pass `onRevampResultApplied`). */
   const [studioApplyResult, setStudioApplyResult] = useState<RevampResult | null>(null);
 
@@ -1335,6 +1346,49 @@ export function ComparisonView({
     () => studioThreads.filter((t) => t.isResolved),
     [studioThreads],
   );
+  const studioAuthorOptions = useMemo<StudioAuthorFilterOption[]>(() => {
+    const uniq = new Map<string, StudioAuthorFilterOption>();
+    for (const thread of studioThreads) {
+      const label = thread.root.type === "ai" ? "AI Revamp" : thread.root.authorLabel || "Note";
+      const key =
+        thread.root.type === "ai"
+          ? "ai"
+          : `human:${normalizeStudioAuthorKey(label)}`;
+      if (!uniq.has(key)) {
+        uniq.set(key, {
+          key,
+          label,
+          shortLabel:
+            label
+              .split(/[^\w]+/)
+              .filter(Boolean)
+              .slice(0, 2)
+              .map((w) => w[0]?.toUpperCase() ?? "")
+              .join("") || label.slice(0, 1).toUpperCase(),
+        });
+      }
+    }
+    return [
+      { key: "all", label: "All", shortLabel: "All" },
+      ...Array.from(uniq.values()),
+    ];
+  }, [studioThreads]);
+  const filteredActiveStudioThreads = useMemo(() => {
+    if (studioAuthorFilter === "all") return activeStudioThreads;
+    return activeStudioThreads.filter((thread) => {
+      if (studioAuthorFilter === "ai") return thread.root.type === "ai";
+      const label = thread.root.authorLabel || "Note";
+      return `human:${normalizeStudioAuthorKey(label)}` === studioAuthorFilter;
+    });
+  }, [activeStudioThreads, studioAuthorFilter]);
+  const filteredResolvedStudioThreads = useMemo(() => {
+    if (studioAuthorFilter === "all") return resolvedStudioThreads;
+    return resolvedStudioThreads.filter((thread) => {
+      if (studioAuthorFilter === "ai") return thread.root.type === "ai";
+      const label = thread.root.authorLabel || "Note";
+      return `human:${normalizeStudioAuthorKey(label)}` === studioAuthorFilter;
+    });
+  }, [resolvedStudioThreads, studioAuthorFilter]);
 
   useEffect(() => {
     loadStudioThreads();
@@ -1812,9 +1866,40 @@ export function ComparisonView({
                   </div>
                 )}
 
+                {studioAuthorOptions.length > 1 && (
+                  <div className="mb-4">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-white/45 mb-2">
+                      Filter by author
+                    </p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {studioAuthorOptions.map((option) => {
+                        const isActive = studioAuthorFilter === option.key;
+                        return (
+                          <button
+                            key={option.key}
+                            type="button"
+                            onClick={() => setStudioAuthorFilter(option.key)}
+                            className={cn(
+                              "group relative h-8 min-w-8 px-2 rounded-full border text-[9px] font-black uppercase tracking-widest transition-all",
+                              isActive
+                                ? "bg-cyan-500/25 border-cyan-300/60 text-cyan-100 shadow-[0_0_16px_rgba(34,211,238,0.22)]"
+                                : "bg-white/[0.05] border-white/15 text-white/70 hover:bg-white/[0.1] hover:text-white",
+                            )}
+                          >
+                            {option.shortLabel}
+                            <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md border border-white/15 bg-black/90 px-2 py-1 text-[10px] font-semibold normal-case tracking-normal text-white/90 opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
+                              {option.label}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-3 max-h-[65vh] overflow-y-auto pr-1 custom-scrollbar">
-                  {activeStudioThreads.length === 0 &&
-                  resolvedStudioThreads.length === 0 ? (
+                  {filteredActiveStudioThreads.length === 0 &&
+                  filteredResolvedStudioThreads.length === 0 ? (
                     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/60">
                       No comments yet. Select text in the PDF and use{" "}
                       <span className="text-white/90 font-semibold">
@@ -1825,25 +1910,25 @@ export function ComparisonView({
                     </div>
                   ) : (
                     <>
-                      {activeStudioThreads.length === 0 && (
+                      {filteredActiveStudioThreads.length === 0 && (
                         <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-xs text-white/50">
                           No open feedback threads. Resolved items are below.
                         </div>
                       )}
-                      {activeStudioThreads.map((thread) =>
+                      {filteredActiveStudioThreads.map((thread) =>
                         renderStudioThreadCard(thread, false),
                       )}
 
-                      {resolvedStudioThreads.length > 0 && (
+                      {filteredResolvedStudioThreads.length > 0 && (
                         <details className="group rounded-2xl border border-white/10 bg-white/[0.02] overflow-hidden">
                           <summary className="cursor-pointer list-none px-4 py-3 flex items-center justify-between gap-2 text-sm font-semibold text-white/70 hover:bg-white/[0.04] [&::-webkit-details-marker]:hidden">
                             <span>
-                              Resolved feedback ({resolvedStudioThreads.length})
+                              Resolved feedback ({filteredResolvedStudioThreads.length})
                             </span>
                             <ChevronDown className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" />
                           </summary>
                           <div className="space-y-3 px-4 pb-4 pt-2 border-t border-white/10 max-h-[42vh] overflow-y-auto custom-scrollbar">
-                            {resolvedStudioThreads.map((thread) =>
+                            {filteredResolvedStudioThreads.map((thread) =>
                               renderStudioThreadCard(thread, true),
                             )}
                           </div>
