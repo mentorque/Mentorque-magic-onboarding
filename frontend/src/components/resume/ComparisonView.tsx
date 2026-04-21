@@ -749,6 +749,17 @@ const SUCCESS_STORIES: Record<string, { message: string; role: string }> = {
   },
 };
 
+const SAMPLE_RESUME_PDFS: Record<string, string> = {
+  Google: "/sample-resume/shikhar-resume_redacted.pdf",
+  Meta: "/sample-resume/Snehashish_Resume_Redacted.pdf",
+  Stripe: "/sample-resume/vijayKumar_redacted.pdf",
+  Amazon: "/sample-resume/Reshu_Agarwal_redacted.pdf",
+  Shopify: "/sample-resume/Komal%20Joshi%20redacted.pdf",
+  Netflix: "/sample-resume/Pramod%20redacted.pdf",
+  Microsoft: "/sample-resume/Agniva_Microsoft.pdf",
+  Apple: "/sample-resume/Prasad%20Katore%20redacted.pdf",
+};
+
 function CompanyFitCard({
   compiledPdfUrl,
 }: {
@@ -951,10 +962,14 @@ function CompanyFitCard({
                       </span>
                     </div>
 
-                    {/* Clean "Paper on a desk" presentation */}
+                    {/* Sample resume PDF from public/sample-resume */}
                     <div className="w-full">
                       <SimplePdfViewer
-                        pdfUrl="/sample-resume.pdf"
+                        pdfUrl={
+                          selectedCompany
+                            ? SAMPLE_RESUME_PDFS[selectedCompany] ?? "/sample-resume.pdf"
+                            : "/sample-resume.pdf"
+                        }
                         className="max-h-[600px] rounded-xl border border-white/5 shadow-2xl"
                       />
                     </div>
