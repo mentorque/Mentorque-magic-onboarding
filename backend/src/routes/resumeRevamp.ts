@@ -34,6 +34,7 @@ import {
   formatFeedbackThreads,
   generateResumeFromActions,
 } from '../lib/studioApplyAI.js';
+import { computeStudioApplyBulletChanges } from '../lib/studioResumeDiff.js';
 
 const router = Router();
 const FALLBACK_PDF_NAME = '8e256776-bf9e-46e2-948c-6e072e22f307.pdf';
@@ -445,9 +446,14 @@ router.post(
           ),
         );
 
+      const changes = computeStudioApplyBulletChanges(
+        currentRevampedResume,
+        mergedResume,
+      );
+
       const revampResult = {
         revampedResume: mergedResume,
-        changes: [] as BulletChange[],
+        changes,
         compiledPdfUrl,
       };
 
