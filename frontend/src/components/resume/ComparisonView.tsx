@@ -48,6 +48,14 @@ import type {
 } from "@/lib/resumeRevampTypes";
 import { withApiBase } from "@/lib/apiBaseUrl";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   PdfAnnotator,
   type AnnotationAttribution,
   type HighlightComment,
@@ -403,9 +411,18 @@ const CONTENT_STAGGER_VARIANTS = {
 interface KeyChangesCardProps {
   changes: BulletChange[];
   onInsightFocus: (text: string | null) => void;
+  canGenerate?: boolean;
+  isGenerating?: boolean;
+  onGenerate?: () => void;
 }
 
-function KeyChangesCard({ changes, onInsightFocus }: KeyChangesCardProps) {
+function KeyChangesCard({
+  changes,
+  onInsightFocus,
+  canGenerate = false,
+  isGenerating = false,
+  onGenerate,
+}: KeyChangesCardProps) {
   const [idx, setIdx] = useState(0);
   const [dir, setDir] = useState(1);
   const [isFlipped, setIsFlipped] = useState(false);
@@ -472,7 +489,13 @@ function KeyChangesCard({ changes, onInsightFocus }: KeyChangesCardProps) {
       </AnimatePresence>
 
       <div className="h-full flex flex-col gap-5 relative z-10">
-        {/* ── Card content viewport with smooth transitions ── */}
+        {changes.length === 0 ? (
+          <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-3 text-center py-6">
+            <p className="text-sm text-white/60">
+              No section-level changes yet for this view.
+            </p>
+          </div>
+        ) : (
         <div className="flex-1 min-h-0 relative overflow-hidden">
           <AnimatePresence
             mode="popLayout"
@@ -626,6 +649,7 @@ function KeyChangesCard({ changes, onInsightFocus }: KeyChangesCardProps) {
             </motion.div>
           </AnimatePresence>
         </div>
+        )}
 
         {/* ── Bottom bar: pagination counter + nav arrows + flip button ── */}
         <div className="mt-auto flex items-center justify-between border-t border-white/5 pt-4">
@@ -1043,15 +1067,20 @@ function MetricsCard({
 function SectionAnalysis({
   changes,
   onInsightFocus,
+  canGenerate,
+  isGenerating,
+  onGenerate,
 }: {
   changes: BulletChange[];
   onInsightFocus: (text: string | null) => void;
+  canGenerate?: boolean;
+  isGenerating?: boolean;
+  onGenerate?: () => void;
 }) {
   const sectionsWithChanges = useMemo(() => {
-    return SECTION_ORDER.filter((s) => {
-      const sectionChanges = changes.filter((c) => c.section === s);
-      return sectionChanges.length > 0 || s === "experience";
-    });
+    return SECTION_ORDER.filter((s) =>
+      changes.some((c) => c.section === s),
+    );
   }, [changes]);
 
   const [sectionIdx, setSectionIdx] = useState(0);
@@ -1096,6 +1125,26 @@ function SectionAnalysis({
               Section Analysis
             </p>
           </div>
+          {canGenerate && (
+            <button
+              type="button"
+              onClick={onGenerate}
+              disabled={isGenerating}
+              className="ml-2 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[10px] font-black uppercase tracking-widest bg-cyan-500/20 border border-cyan-400/35 text-cyan-200 hover:bg-cyan-500/30 disabled:opacity-40 disabled:pointer-events-none transition-all"
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Generating
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3 h-3" />
+                  Generate
+                </>
+              )}
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-6">
@@ -1157,6 +1206,9 @@ function SectionAnalysis({
             <KeyChangesCard
               changes={sectionChanges}
               onInsightFocus={onInsightFocus}
+              canGenerate={canGenerate}
+              isGenerating={isGenerating}
+              onGenerate={onGenerate}
             />
           </motion.div>
         </AnimatePresence>
@@ -1185,10 +1237,14 @@ export function ComparisonView({
   const [studioReplyDraft, setStudioReplyDraft] = useState("");
   const [studioReplyPosting, setStudioReplyPosting] = useState(false);
   const [studioApplyBusy, setStudioApplyBusy] = useState(false);
+  const [studioRegenerateBusy, setStudioRegenerateBusy] = useState(false);
   const [studioApplyError, setStudioApplyError] = useState<string | null>(null);
+  const [regenModalOpen, setRegenModalOpen] = useState(false);
+  const [regenPromptDraft, setRegenPromptDraft] = useState("");
   const [highlightsRefreshTick, setHighlightsRefreshTick] = useState(0);
   const [focusHighlightId, setFocusHighlightId] = useState<string | null>(null);
   const [focusSignal, setFocusSignal] = useState(0);
+  const [focusStudioHighlightId, setFocusStudioHighlightId] = useState<string | null>(null);
   const [insightFocusText, setInsightFocusText] = useState<string | null>(null);
   /** After admin "Make Changes", merge API result into UI (parent often does not pass `onRevampResultApplied`). */
   const [studioApplyResult, setStudioApplyResult] = useState<RevampResult | null>(null);
@@ -1285,6 +1341,15 @@ export function ComparisonView({
     const interval = setInterval(loadStudioThreads, 5000);
     return () => clearInterval(interval);
   }, [loadStudioThreads]);
+
+  useEffect(() => {
+    if (!focusStudioHighlightId) return;
+    const el = document.querySelector<HTMLElement>(
+      `[data-highlight-id="${focusStudioHighlightId}"]`,
+    );
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [focusStudioHighlightId, studioThreads]);
 
   const submitStudioReply = async (thread: StudioThreadItem) => {
     const text = studioReplyDraft.trim();
@@ -1398,6 +1463,50 @@ export function ComparisonView({
     loadStudioThreads,
   ]);
 
+  const regenerateStudioChangesFromContext = useCallback(async (prompt?: string) => {
+    if (!authToken?.trim()) {
+      setStudioApplyError("Sign in with a valid access token to regenerate changes.");
+      return;
+    }
+    if (!annotation?.onboardingId) {
+      setStudioApplyError("Missing onboarding context.");
+      return;
+    }
+    setStudioRegenerateBusy(true);
+    setStudioApplyError(null);
+    try {
+      const res = await fetch(withApiBase("/api/onboarding/regenerate-changes"), {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${authToken.trim()}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          onboardingId: annotation.onboardingId,
+          prompt: prompt ?? "",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.success || !data?.revampResult) {
+        setStudioApplyError(
+          typeof data?.message === "string"
+            ? data.message
+            : "Could not regenerate change cards.",
+        );
+        return;
+      }
+      const next = data.revampResult as RevampResult;
+      setStudioApplyResult(next);
+      onRevampResultApplied?.(next);
+    } catch (e: unknown) {
+      setStudioApplyError(
+        e instanceof Error ? e.message : "Network error while regenerating changes.",
+      );
+    } finally {
+      setStudioRegenerateBusy(false);
+    }
+  }, [authToken, annotation?.onboardingId, onRevampResultApplied]);
+
   function renderStudioThreadCard(
     thread: StudioThreadItem,
     resolvedLook: boolean,
@@ -1407,10 +1516,11 @@ export function ComparisonView({
     return (
       <div
         key={cardKey}
+        data-highlight-id={thread.highlightId}
         className={cn(
           "w-full rounded-2xl border bg-white/[0.04] p-4 transition-all",
           resolvedLook && "opacity-90",
-          replyOpen
+          (focusStudioHighlightId === thread.highlightId || replyOpen)
             ? "border-cyan-400/35 ring-1 ring-cyan-400/20 shadow-[0_0_24px_rgba(34,211,238,0.08)]"
             : "border-white/10 hover:bg-white/[0.07] hover:border-white/20",
         )}
@@ -1549,6 +1659,12 @@ export function ComparisonView({
             focusedInsightText={insightFocusText}
             annotation={annotation}
             highlightsRefreshSignal={highlightsRefreshTick}
+            onHighlightClick={(highlightId) => {
+              setFocusHighlightId(highlightId);
+              setFocusSignal((n) => n + 1);
+              setFocusStudioHighlightId(highlightId);
+              setActiveTab("studio");
+            }}
           />
         </div>
 
@@ -1631,6 +1747,11 @@ export function ComparisonView({
                 <SectionAnalysis
                   changes={displayChanges}
                   onInsightFocus={setInsightFocusText}
+                  canGenerate={isAdminAnnotator}
+                  isGenerating={studioRegenerateBusy}
+                  onGenerate={() => {
+                    setRegenModalOpen(true);
+                  }}
                 />
               </div>
 
@@ -1735,6 +1856,45 @@ export function ComparisonView({
           )}
         </div>
       </div>
+
+      <Dialog open={regenModalOpen} onOpenChange={setRegenModalOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Generate Changes</DialogTitle>
+            <DialogDescription>
+              Add guidance on what to highlight more (metrics, ATS keywords,
+              leadership impact, etc). This regenerates all change cards.
+            </DialogDescription>
+          </DialogHeader>
+          <textarea
+            value={regenPromptDraft}
+            onChange={(e) => setRegenPromptDraft(e.target.value)}
+            placeholder="Example: Focus more on quantified business impact and data analytics achievements; de-emphasize generic tooling text."
+            rows={6}
+            className="w-full resize-y rounded-xl border border-white/15 bg-black/30 px-3 py-2 text-sm text-white/90 placeholder:text-white/35 focus:outline-none focus:ring-2 focus:ring-cyan-400/30"
+          />
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setRegenModalOpen(false)}
+              className="rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-widest border border-white/15 text-white/70 hover:bg-white/10"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={studioRegenerateBusy}
+              onClick={() => {
+                void regenerateStudioChangesFromContext(regenPromptDraft);
+                setRegenModalOpen(false);
+              }}
+              className="rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-widest bg-cyan-500/20 border border-cyan-400/35 text-cyan-200 hover:bg-cyan-500/30 disabled:opacity-40"
+            >
+              {studioRegenerateBusy ? "Generating..." : "Generate"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

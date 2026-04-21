@@ -154,6 +154,8 @@ interface PdfAnnotatorProps {
   annotation?: AnnotationAttribution | null;
   /** Increment to refetch highlights from the API (e.g. after bulk resolve). */
   highlightsRefreshSignal?: number;
+  /** Called when a highlight block is clicked (used to focus Studio card). */
+  onHighlightClick?: (highlightId: string) => void;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -200,9 +202,7 @@ function HighlightLayer({
               }}
               className={cn(
                 "transition-all duration-300 border-l-2",
-                h.comments[0]?.type === "ai"
-                  ? "bg-violet-500/20 border-violet-500/40 hover:bg-violet-500/30"
-                  : "bg-amber-500/20 border-amber-500/40 hover:bg-amber-500/30",
+                "bg-cyan-500/20 border-cyan-400/40 hover:bg-cyan-500/30",
                 activeId === h.id && "ring-2 ring-white/40 shadow-[0_0_15px_rgba(255,255,255,0.1)]",
               )}
             />
@@ -701,6 +701,7 @@ export function PdfAnnotator({
   focusedInsightText,
   annotation = null,
   highlightsRefreshSignal = 0,
+  onHighlightClick,
 }: PdfAnnotatorProps) {
   const [numPages, setNumPages] = useState<number | null>(null);
   const [pageNumber, setPageNumber] = useState(1);
@@ -744,8 +745,8 @@ export function PdfAnnotator({
   // ── Fetch existing highlights ───────────────────────────────────────────────
   useEffect(() => {
     const q = new URLSearchParams();
-    // Keep resolved comments visible forever across regenerated PDFs.
-    q.set("includeResolved", "true");
+    // Annotator should show only active/open highlights.
+    // Resolved threads remain visible in Resume Studio cards.
     if (annotation?.onboardingId) {
       q.set("onboardingId", annotation.onboardingId);
     } else if (documentId) {
@@ -1141,6 +1142,7 @@ export function PdfAnnotator({
               highlights={highlights}
               pageNumber={pageNumber}
               onClickHighlight={(h) => {
+                onHighlightClick?.(h.id);
                 if (activeHighlight?.id === h.id) {
                   setActiveHighlight(null);
                 } else {
@@ -1246,13 +1248,8 @@ export function PdfAnnotator({
       {highlights.length > 0 && (
         <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-white/30">
           <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded bg-violet-400/40" />
-            AI ({highlights.filter((h) => h.comments[0]?.type === "ai").length})
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded bg-amber-400/40" />
-            Notes (
-            {highlights.filter((h) => h.comments[0]?.type === "human").length})
+            <div className="w-3 h-3 rounded bg-cyan-400/40" />
+            Annotations ({highlights.length})
           </div>
         </div>
       )}

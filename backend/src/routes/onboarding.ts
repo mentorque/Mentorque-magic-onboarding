@@ -12,6 +12,7 @@ import {
 } from "../middlewares/auth.js";
 import { parseResumeText } from "../lib/resumeParser.js";
 import { generateQuestionsFromResume } from "../lib/resumeRevampAI.js";
+import { regenerateStudioChanges } from "../lib/studioRegenerateChangesAI.js";
 
 const router = Router();
 const ADMIN_ACCESS_TOKEN =
@@ -103,6 +104,90 @@ function newOnboardingResumeSettingsRow(params: {
     isOnboardingResume: true,
     updatedAt: now,
   };
+}
+
+function sanitizeForCompiler(resume: any): any {
+  const r = structuredClone(resume);
+  const fallbackDate = (v: string | undefined, fallback: string) =>
+    v && v.trim() ? v.trim() : fallback;
+
+  if (Array.isArray(r.experience)) {
+    r.experience = r.experience.map((exp: any) => ({
+      ...exp,
+      startDate: fallbackDate(exp.startDate, "Jan 2020"),
+      endDate: fallbackDate(exp.endDate, "Present"),
+      company: exp.company?.trim() || "Company",
+      position: exp.position?.trim() || "Role",
+    }));
+  }
+  if (Array.isArray(r.education)) {
+    r.education = r.education.map((edu: any) => ({
+      ...edu,
+      startDate: fallbackDate(edu.startDate, "Aug 2018"),
+      endDate: fallbackDate(edu.endDate, "May 2022"),
+      institution: edu.institution?.trim() || "University",
+      degree: edu.degree?.trim() || "Degree",
+    }));
+  }
+  if (Array.isArray(r.projects)) {
+    r.projects = r.projects.map((proj: any) => ({
+      ...proj,
+      name: proj.name?.trim() || "Project",
+    }));
+  }
+  return r;
+}
+
+async function ensureCompiledPdfForSubmission<T extends { id: string; revampResult: any }>(
+  submission: T,
+): Promise<T> {
+  const rr = submission?.revampResult;
+  if (!rr || typeof rr !== "object" || !rr.revampedResume) {
+    return submission;
+  }
+
+  const existingUrl =
+    typeof rr.compiledPdfUrl === "string" && rr.compiledPdfUrl.trim()
+      ? rr.compiledPdfUrl.trim()
+      : null;
+
+  let needsRecompile = !existingUrl;
+  if (existingUrl) {
+    try {
+      const upstream = await fetch(existingUrl);
+      needsRecompile = !upstream.ok;
+    } catch {
+      needsRecompile = true;
+    }
+  }
+  if (!needsRecompile) return submission;
+
+  const compilerBaseUrl = (process.env.RESUME_COMPILER_URL || "http://localhost:5001").replace(
+    /\/$/,
+    "",
+  );
+  const compileRes = await fetch(`${compilerBaseUrl}/api/resume/compile`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(sanitizeForCompiler(rr.revampedResume)),
+  });
+  if (!compileRes.ok) {
+    const errBody = await compileRes.text();
+    throw new Error(`ResumeCompiler returned ${compileRes.status}: ${errBody.slice(0, 300)}`);
+  }
+  const data = (await compileRes.json()) as { url: string };
+  const compiledPdfUrl = data.url?.startsWith("http")
+    ? data.url
+    : `${compilerBaseUrl}${data.url}`;
+
+  const nextRevampResult = { ...rr, compiledPdfUrl };
+  const [updated] = await db
+    .update(onboardingSubmissionsTable)
+    .set({ revampResult: nextRevampResult as any, updatedAt: new Date() } as any)
+    .where(eq(onboardingSubmissionsTable.id, submission.id))
+    .returning();
+
+  return (updated ?? { ...submission, revampResult: nextRevampResult }) as T;
 }
 
 router.post("/submissions", authenticateFirebaseToken, async (req: Request, res: Response) => {
@@ -463,6 +548,87 @@ router.post("/save-revamp-result", authenticateFirebaseOrMentorAccess, async (re
   }
 });
 
+/** Mentor admin: regenerate high-quality `revamp_result.changes` from resume context. */
+router.post(
+  "/regenerate-changes",
+  authenticateFirebaseOrMentorAccess,
+  async (req: Request, res: Response) => {
+    try {
+      if (req.authMode !== "mentor" || !req.mentorAccess) {
+        return res.status(403).json({ success: false, message: "Mentor access required." });
+      }
+      const role = String(req.mentorAccess.payload.role ?? "").toLowerCase();
+      if (role !== "admin") {
+        return res.status(403).json({ success: false, message: "Admin reviewer role required." });
+      }
+
+      const tokenOid = req.mentorAccess.payload.onboardingId;
+      const bodyOid =
+        typeof req.body?.onboardingId === "string" ? req.body.onboardingId.trim() : "";
+      const oid = bodyOid || tokenOid;
+      if (oid !== tokenOid) {
+        return res.status(403).json({ success: false, message: "onboardingId mismatch." });
+      }
+
+      const [submission] = await db
+        .select()
+        .from(onboardingSubmissionsTable)
+        .where(eq(onboardingSubmissionsTable.id, oid));
+      if (!submission) {
+        return res.status(404).json({ success: false, message: "Submission not found." });
+      }
+
+      const uploadedResumeText =
+        typeof submission.uploadedResumeText === "string" ? submission.uploadedResumeText : "";
+      const parsedResume = submission.parsedResume;
+      const revamp = submission.revampResult as any;
+      const revampedResume = revamp?.revampedResume;
+      const adminPrompt =
+        typeof req.body?.prompt === "string" ? req.body.prompt : "";
+
+      if (!uploadedResumeText.trim() || !parsedResume || !revampedResume) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Missing uploadedResumeText, parsedResume, or revampResult.revampedResume for regeneration.",
+        });
+      }
+
+      const changes = await regenerateStudioChanges({
+        uploadedResumeText,
+        parsedResume,
+        revampedResume,
+        adminPrompt,
+      });
+
+      const nextRevampResult = {
+        ...(revamp ?? {}),
+        revampedResume,
+        compiledPdfUrl:
+          typeof revamp?.compiledPdfUrl === "string" ? revamp.compiledPdfUrl : null,
+        changes,
+      };
+
+      const [updated] = await db
+        .update(onboardingSubmissionsTable)
+        .set({ revampResult: nextRevampResult as any, updatedAt: new Date() } as any)
+        .where(eq(onboardingSubmissionsTable.id, oid))
+        .returning();
+
+      return res.json({
+        success: true,
+        submission: updated ?? submission,
+        revampResult: nextRevampResult,
+      });
+    } catch (err: any) {
+      console.error("[regenerate-changes]", err?.message);
+      return res
+        .status(500)
+        .json({ success: false, message: err?.message ?? "Failed to regenerate changes." });
+    }
+  },
+);
+
 /** Authenticated: onboarding row — `revealResume`, `inputStatus`, full payload. */
 async function handleGetMySubmission(req: Request, res: Response) {
   const authId = (req.user as { id: string }).id;
@@ -527,6 +693,7 @@ router.get("/revamp-space-data", authenticateFirebaseOrMentorAccess, async (req:
           message: "Revamp space is not available for your account yet.",
         });
       }
+      const hydrated = await ensureCompiledPdfForSubmission(latest as any);
       const u = req.user as { name?: string; fullName?: string; email?: string | null };
       const displayName =
         (typeof u.name === "string" && u.name.trim()) ||
@@ -535,11 +702,11 @@ router.get("/revamp-space-data", authenticateFirebaseOrMentorAccess, async (req:
         "You";
       return res.json({
         success: true,
-        submission: latest,
+        submission: hydrated,
         annotation: {
           displayName,
           role: "candidate",
-          onboardingId: latest.id,
+          onboardingId: hydrated.id,
           reviewerId: null as string | null,
         },
       });
@@ -554,9 +721,10 @@ router.get("/revamp-space-data", authenticateFirebaseOrMentorAccess, async (req:
       if (!submission) {
         return res.status(404).json({ success: false, message: "Submission not found." });
       }
+      const hydrated = await ensureCompiledPdfForSubmission(submission as any);
       return res.json({
         success: true,
-        submission,
+        submission: hydrated,
         annotation: {
           displayName: reviewer.name,
           role: payload.role,
