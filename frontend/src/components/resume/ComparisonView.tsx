@@ -410,7 +410,6 @@ const CONTENT_STAGGER_VARIANTS = {
 
 interface KeyChangesCardProps {
   changes: BulletChange[];
-  onInsightFocus: (text: string | null) => void;
   canGenerate?: boolean;
   isGenerating?: boolean;
   onGenerate?: () => void;
@@ -418,7 +417,6 @@ interface KeyChangesCardProps {
 
 function KeyChangesCard({
   changes,
-  onInsightFocus,
   canGenerate = false,
   isGenerating = false,
   onGenerate,
@@ -435,7 +433,6 @@ function KeyChangesCard({
       setIdx(0);
       setDisplayIdx(0);
       setIsFlipped(false);
-      onInsightFocus(null);
       return;
     }
     setIdx((i) => Math.min(i, changes.length - 1));
@@ -451,23 +448,15 @@ function KeyChangesCard({
     setDir(d);
     setIdx(nextIdx);
     setDisplayIdx(nextIdx);
-    // Reset to diff view when navigating, and clear focus
+    // Reset to diff view when navigating
     if (isFlipped) {
       setIsFlipped(false);
-      onInsightFocus(null);
     }
   };
 
   const toggleFlip = () => {
-    const nextFlippedState = !isFlipped;
     setAnimAction("flip");
-    setIsFlipped(nextFlippedState);
-    // If opening insight, send the revised text to highlight. If closing, clear it.
-    if (nextFlippedState && visible) {
-      onInsightFocus(visible.revised);
-    } else {
-      onInsightFocus(null);
-    }
+    setIsFlipped((prev) => !prev);
   };
 
   return (
@@ -1081,13 +1070,11 @@ function MetricsCard({
 
 function SectionAnalysis({
   changes,
-  onInsightFocus,
   canGenerate,
   isGenerating,
   onGenerate,
 }: {
   changes: BulletChange[];
-  onInsightFocus: (text: string | null) => void;
   canGenerate?: boolean;
   isGenerating?: boolean;
   onGenerate?: () => void;
@@ -1220,7 +1207,6 @@ function SectionAnalysis({
           >
             <KeyChangesCard
               changes={sectionChanges}
-              onInsightFocus={onInsightFocus}
               canGenerate={canGenerate}
               isGenerating={isGenerating}
               onGenerate={onGenerate}
@@ -1260,7 +1246,6 @@ export function ComparisonView({
   const [focusHighlightId, setFocusHighlightId] = useState<string | null>(null);
   const [focusSignal, setFocusSignal] = useState(0);
   const [focusStudioHighlightId, setFocusStudioHighlightId] = useState<string | null>(null);
-  const [insightFocusText, setInsightFocusText] = useState<string | null>(null);
   /** After admin "Make Changes", merge API result into UI (parent often does not pass `onRevampResultApplied`). */
   const [studioApplyResult, setStudioApplyResult] = useState<RevampResult | null>(null);
 
@@ -1671,7 +1656,7 @@ export function ComparisonView({
             documentId={documentId}
             focusHighlightId={focusHighlightId}
             focusSignal={focusSignal}
-            focusedInsightText={insightFocusText}
+            focusedInsightText={null}
             annotation={annotation}
             highlightsRefreshSignal={highlightsRefreshTick}
             onHighlightClick={(highlightId) => {
@@ -1761,7 +1746,6 @@ export function ComparisonView({
               <div className="shrink-0">
                 <SectionAnalysis
                   changes={displayChanges}
-                  onInsightFocus={setInsightFocusText}
                   canGenerate={isAdminAnnotator}
                   isGenerating={studioRegenerateBusy}
                   onGenerate={() => {
