@@ -98,6 +98,7 @@ export function formatFeedbackThreads(
 export async function extractActionItemsFromFeedback(
   feedbackDigest: string,
   schemaOutline: string,
+  domainGuidance?: string,
 ): Promise<StudioActionItem[]> {
   const client = getClient();
   const completion = await client.chat.completions.create({
@@ -111,13 +112,15 @@ export async function extractActionItemsFromFeedback(
 Return JSON: { "items": [ { "path": "json.path.using.dot.notation", "instruction": "specific change" } ] }
 Rules:
 - Paths must match the resume object: use dot notation and array indices like experience[0].highlights[1] or projects[2].description.
+- If playbook/domain guidance is provided, bias instructions toward that track's expectations (metrics, scope, outcomes) only when the thread already implies that direction — do not invent new claims.
+- instruction must be self-contained: say what to change and the intended outcome (e.g. "Replace with stronger verb + add revenue outcome from thread").
 - Skip meta-requests that cannot map to the schema (e.g. "make PDF prettier").
-- Each item should be actionable (replace text, add bullet, fix date, etc.).
+- One thread may yield multiple items if it maps to multiple fields.
 - If nothing maps cleanly, return { "items": [] }.`,
       },
       {
         role: "user",
-        content: `Resume schema outline (paths/keys):\n${schemaOutline}\n\n---\nThreads:\n${feedbackDigest.slice(0, 120000)}`,
+        content: `${domainGuidance ? `Playbook/domain guidance:\n${domainGuidance}\n\n` : ""}Resume schema outline (paths/keys):\n${schemaOutline}\n\n---\nThreads:\n${feedbackDigest.slice(0, 120000)}`,
       },
     ],
   });
@@ -136,6 +139,7 @@ Rules:
 export async function generateResumeFromActions(
   currentResume: unknown,
   actionItems: StudioActionItem[],
+  domainGuidance?: string,
 ): Promise<unknown> {
   const client = getClient();
   const completion = await client.chat.completions.create({
@@ -147,15 +151,16 @@ export async function generateResumeFromActions(
         role: "system",
         content: `You output a single JSON object with key "resume" containing the COMPLETE updated resume.
 Merge ACTION ITEMS into CURRENT RESUME. Preserve structure and all sections unless an instruction removes something explicitly.
-Arrays must remain valid (same object shapes). Do not return partial resumes.`,
+Arrays must remain valid (same object shapes). Do not return partial resumes.
+If playbook/domain guidance is present, apply it as polish and emphasis while executing the action items — still no fabricated employers, dates, tools, or metrics.`,
       },
       {
         role: "user",
-        content: JSON.stringify(
+        content: `${domainGuidance ? `Playbook/domain guidance:\n${domainGuidance}\n\n` : ""}${JSON.stringify(
           { currentResume, actionItems },
           null,
           0,
-        ).slice(0, 120000),
+        ).slice(0, 120000)}`,
       },
     ],
   });

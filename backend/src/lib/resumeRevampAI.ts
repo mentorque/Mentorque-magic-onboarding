@@ -9,6 +9,7 @@
  */
 
 import OpenAI from 'openai';
+import { buildPlaybookPromptContext } from "./playbookPromptContext.js";
 
 const MODEL = 'gpt-4.1';
 
@@ -182,6 +183,21 @@ export async function generateQuestionsFromResume(
     ? `DO NOT ask about any of the following — we already have this:\n${known.join('\n')}`
     : '';
 
+  const roleHintForPlaybook = [preferences.targetRole, workExperience.jobTitle, latestRole]
+    .map((v) => String(v ?? '').trim())
+    .filter(Boolean)
+    .join(' ')
+    .slice(0, 2000);
+  const { contextBlock: fullPlaybookBlock } = buildPlaybookPromptContext({
+    resume: parsedResume,
+    roleHint: roleHintForPlaybook,
+  });
+  const playbookQuestionBlock = fullPlaybookBlock.trim()
+    ? `━━━ RESUME TRACK HINT (for tailoring only — not a fact source) ━━━
+${fullPlaybookBlock.slice(0, 2800)}
+Use this to steer vocabulary, sector options, and what "good" looks like for their path. Never quote playbook headings in the questions themselves. Do not mention PageIndex, trees, or playbooks to the candidate.\n\n`
+    : '';
+
   // Build the two stat-translation question specs inline so the AI just fills them in
   const statQuestionSpecs = impactTargets.length > 0
     ? impactTargets.map(({ bullet, company, role }, i) =>
@@ -216,7 +232,7 @@ ${knownBlock}
 ━━━ CANDIDATE SNAPSHOT ━━━
 ${JSON.stringify(snapshot, null, 2)}
 
-━━━ QUESTION SLOTS — cover all of these in order ━━━
+${playbookQuestionBlock}━━━ QUESTION SLOTS — cover all of these in order ━━━
 
 ${statQuestionSpecs}
 
@@ -239,6 +255,7 @@ ${domainAndTargetSlot}
 
 ━━━ RULES ━━━
 - Follow VOICE above for every "question" and "hint"
+- When RESUME TRACK HINT is present: make [SECTORS & DOMAIN], [TOOLS & TECH], and MCQ options feel native to that path — still strictly grounded in the snapshot (no invented employers or tools they did not plausibly use).
 - For STAT IMPACT: quote their exact stat or phrase from the bullet so it's clear you read it
 - Do not ask about anything listed under DO NOT ask about
 - Hints: one concrete example sentence, still warm (not formal)
@@ -269,7 +286,7 @@ Return ONLY valid JSON. No markdown, no preamble.
       {
         role: 'system',
         content:
-          'You are a warm Mentorque career mentor. Return only valid JSON with a "questions" array (6–8 items). No markdown, no code fences, no text outside the JSON. Use questionType "mcq_multi" for multi-select questions; include "Other" as the last option when you use options.',
+          'You are a warm Mentorque career mentor. Return only valid JSON with a "questions" array (8–10 items). No markdown, no code fences, no text outside the JSON. Use questionType "mcq_multi" for multi-select questions; include "Other" as the last option when you use options. If a resume track hint appears in the user message, use it only to tailor tone and choices — never as a source of facts about the candidate.',
       },
       { role: 'user', content: prompt },
     ],
@@ -314,6 +331,18 @@ export async function revampResume(
   const answersText = Object.keys(answers).length
     ? Object.entries(answers).map(([id, ans]) => `${id}: ${ans}`).join('\n')
     : 'No additional context provided.';
+  const roleHint = Object.values(answers)
+    .map((v) => String(v ?? '').trim())
+    .filter(Boolean)
+    .join(' ')
+    .slice(0, 4000);
+  const { domain, contextBlock } = buildPlaybookPromptContext({
+    resume: parsedResume,
+    roleHint,
+  });
+  const playbookCoachBlock = contextBlock.trim()
+    ? `When writing reason and coachTip fields: tie improvements to what reviewers in this track look for (scope, outcomes, credibility signals) — still grounded in the candidate's facts. Do not mention "playbook", "PageIndex", or "tree" in user-facing strings.`
+    : '';
 
   const prompt = `You are an expert resume writer for Mentorque, a professional mentorship platform.
 
@@ -344,6 +373,8 @@ Every change must be classified as exactly one of these categories:
 
 ━━━ ADDITIONAL CONTEXT FROM CANDIDATE ━━━
 ${answersText}
+
+${contextBlock}
 
 ━━━ ORIGINAL RESUME ━━━
 ${JSON.stringify(parsedResume, null, 2)}
@@ -385,13 +416,20 @@ Justification rules (CRITICAL — these power the coaching UI):
 - guidelineRef: must be in format "Rule N — <exact rule name from the guidelines above>"
 - metricHighlight: ONLY include if a concrete number/% was introduced or made more precise. Quote the exact metric and note its source: "(from candidate answer)", "(inferred from role level)", or "(industry benchmark)". OMIT the field entirely if no metric change occurred.
 - coachTip: 1-2 sentences written as if a senior recruiter/hiring manager is speaking. Should explain WHY this category of change improves screening outcomes — not just restate what was done. Make it feel like insider knowledge.
+${playbookCoachBlock ? `\n${playbookCoachBlock}\n` : ''}
+Summary and skills: mirror the inferred track (${domain}) — lead with the sharpest differentiators for that path, but only when supported by experience or answers.
 
 Be thorough — every suboptimal bullet should be improved. Quality over speed on the justifications.`;
 
   const response = await client.chat.completions.create({
     model: MODEL,
     messages: [
-      { role: 'system', content: 'You are an expert resume writer. Return only valid JSON, no markdown.' },
+      {
+        role: 'system',
+        content:
+          'You are an expert resume writer for Mentorque. Return only valid JSON, no markdown. ' +
+          'Honor the playbook block in the user message as emphasis and vocabulary only — never fabricate employers, dates, tools, or metrics not implied by the resume or questionnaire.',
+      },
       { role: 'user', content: prompt },
     ],
     temperature: 0.5,
@@ -415,7 +453,13 @@ Be thorough — every suboptimal bullet should be improved. Quality over speed o
 
   return {
     revampedResume: result.revampedResume || parsedResume,
-    changes,
+    changes: changes.map((c) => ({
+      ...c,
+      reason:
+        typeof c.reason === "string" && c.reason.trim()
+          ? c.reason
+          : `Updated for stronger ${domain} resume alignment and clearer impact.`,
+    })),
   };
 }
 

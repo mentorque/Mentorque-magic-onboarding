@@ -1,0 +1,90 @@
+{
+  "doc_id": "pi-cmoaek3ch02dv01qtnfrmp6mw",
+  "status": "completed",
+  "retrieval_ready": false,
+  "result": [
+    {
+      "title": "Preface",
+      "node_id": "0000",
+      "page_index": 1
+    },
+    {
+      "title": "1.5 Contact Section",
+      "node_id": "0001",
+      "page_index": 2
+    },
+    {
+      "title": "PART 2 — PROFESSIONAL SUMMARY",
+      "node_id": "0002",
+      "page_index": 2
+    },
+    {
+      "title": "PART 3 — EDUCATION",
+      "node_id": "0003",
+      "page_index": 2
+    },
+    {
+      "title": "PART 4 — CERTIFICATIONS &amp; CREDENTIALS",
+      "node_id": "0004",
+      "page_index": 3
+    },
+    {
+      "title": "PART 5 — TAILORING, SUBMISSION &amp; FINAL CHECKS",
+      "node_id": "0005",
+      "page_index": 3
+    },
+    {
+      "title": "PART 6 — PROFESSIONAL SUMMARY (Data / Business Analyst)",
+      "node_id": "0006",
+      "page_index": 4
+    },
+    {
+      "title": "PART 7 — SKILLS &amp; EXPERTISE (Data / Business Analyst)",
+      "node_id": "0007",
+      "page_index": 5
+    },
+    {
+      "title": "PART 8 — WORK EXPERIENCE (Data / Business Analyst)",
+      "node_id": "0008",
+      "page_index": 5,
+      "nodes": [
+        {
+          "title": "8.1 Role Header Format",
+          "node_id": "0009",
+          "page_index": 5,
+          "text": "<physical_index_5>\n## 8.1 Role Header Format\n\nData Analyst | Company Name (B2C e-commerce, $120M ARR)\nCity, Country (or 'Remote')\n\nMar 2021 – Present\n<physical_index_5>"
+        },
+        {
+          "title": "8.2 The Analyst Bullet Framework",
+          "node_id": "0010",
+          "page_index": 5,
+          "text": "<physical_index_5>\n## 8.2 The Analyst Bullet Framework\n<physical_index_5>\n\n<physical_index_6>\nSTRUCTURE: [Action Verb] + [What analysis / model / framework] + [Using what tools] + [Business outcome: $, %, time, decisions enabled]\n\nEXAMPLE: Built a 30-day churn prediction model (Scikit-learn, logistic regression) on 600K customer records, achieving 82% precision, enabling the CRM team to target at-risk users 2 weeks earlier and recover $280K in ARR over one quarter.\n<physical_index_6>"
+        },
+        {
+          "title": "8.3 The Four Business Impact Dimensions for Analysts",
+          "node_id": "0011",
+          "page_index": 6,
+          "text": "<physical_index_6>\n## 8.3 The Four Business Impact Dimensions for Analysts\n\n- REVENUE IMPACT: 'Identified $X opportunity', 'contributed to $Y revenue lift', 'analysis underpinned a pricing change that generated $Z'. Revenue impact is the most powerful metric on any analyst resume.\n- EFFICIENCY IMPACT: 'Reduced reporting time by X hours/week', 'automated Y manual process saving Z person-hours/month', 'decreased analyst effort from 8 hours to 45 minutes'. Shows operational leverage.\n- DECISION IMPACT: 'Analysis adopted by exec leadership to justify $X investment', 'dashboard used daily by 12 stakeholders across 4 BUs', 'recommendations implemented across 3 markets'. Shows stakeholder influence.\n- ACCURACY / QUALITY IMPACT: 'Improved forecast accuracy from 71% to 89%', 'reduced data discrepancies by 94% through pipeline validation', 'decreased report error rate to zero'. Shows technical credibility.\n- When none of the above are available: name the tool, method, scope, and adoption — 'Built an Airflow DAG processing 4M daily transactions used by 3 downstream teams' is significantly stronger than 'worked with data pipelines'.\n<physical_index_6>"
+        },
+        {
+          "title": "8.4 Strong Action Verb Bank (Analyst)",
+          "node_id": "0012",
+          "page_index": 6,
+          "text": "<physical_index_6>\n## 8.4 Strong Action Verb Bank (Analyst)\n\nAnalyzed • Modelled • Built • Designed • Automated • Developed • Identified • Quantified • Forecasted • Synthesized • Discovered • Investigated • Evaluated • Validated • Standardized • Streamlined • Migrated • Presented • Delivered • Drove • Influenced • Enabled\n<physical_index_6>"
+        },
+        {
+          "title": "8.5 Before vs. After — Analyst Bullets",
+          "node_id": "0013",
+          "page_index": 6,
+          "text": "<physical_index_6>\n## 8.5 Before vs. After — Analyst Bullets\n\n|  **XVague (Never Write These)**\nCreated dashboards for the business team\nWorked with sales data to generate insights\nWrote SQL queries to pull reports\nAnalyzed customer behavior patterns\nHelped the team with data-driven decisions\nUsed Python to process data | **✓ Specific (Write These Instead)**\nBuilt a real-time Tableau executive dashboard tracking 8 KPIs across 5 markets; adopted by the CMO and used in weekly leadership reviews, saving 6 hours of manual reporting per week\nSegmented 85K B2B accounts by revenue potential and churn risk using K-means clustering (Python), surfacing a $1.8M cross-sell opportunity actioned by the sales team in Q3\nAutomated 4 weekly sales and inventory reports using Python (Pandas) + Airflow, eliminating 11 hours of manual analyst effort per week and reducing delivery from Thursday to Monday morning\nConducted cohort retention analysis on 200K users, identifying a 23% drop-off at day 7 that informed a product onboarding redesign, increasing D30 retention by 8 percentage points\nDeveloped pricing sensitivity model using regression analysis that informed a 12% price increase on 3 SKUs, contributing $420K incremental revenue with no measurable churn impact\nCleaned, transformed, and modelled 15M transaction records from 3 disparate source systems in Snowflake + dbt, enabling the company's first unified customer 360 view  |\n| --- | --- |\n<physical_index_6>"
+        },
+        {
+          "title": "8.6 Business Analyst Specific: Requirements &amp; Process Bullets",
+          "node_id": "0014",
+          "page_index": 6,
+          "text": "<physical_index_6>\n## 8.6 Business Analyst Specific: Requirements &amp; Process Bullets\n\n- BA-specific bullets should demonstrate structured thinking: requirements gathering, gap analysis, process improvement, and stakeholder alignment — not just data analysis.\n\nLed 12 stakeholder workshops across Finance and Operations to elicit requirements for a $3.2M ERP replacement, producing a 60-page BRD signed off within 4 weeks — 3 weeks ahead of the programme plan.\n\nMapped 8 end-to-end business processes (BPMN) in Visio, identifying 6 redundant approval steps; process redesign reduced average transaction cycle time from 11 days to 4 days.\n<physical_index_6>\n\n<physical_index_7>\nPART 9 — HIGH-IMPACT CERTIFICATIONS (Analyst)\n\n9.1 Certifications That Move the Needle\n\n- DATA ANALYST TRACK: Google Data Analytics Professional Certificate (widely recognized) | Databricks Certified Data Analyst Associate | dbt Analytics Engineering | Microsoft Certified: Power BI Data Analyst Associate | Tableau Desktop Specialist / Certified Data Analyst.\n- BUSINESS ANALYST TRACK: IIBA Entry Certificate in Business Analysis (ECBA) | Certified Business Analysis Professional (CBAP) | PMI Professional in Business Analysis (PMI-PBA) | Agile Analysis Certification (IIBA-AAC).\n- CLOUD DATA: AWS Certified Data Analytics Specialty | Google Professional Data Engineer | Snowflake SnowPro Core.\n- FINANCE-DOMAIN: CFA Level 1/2 (for BFSI analytics roles) | FRM | Financial Modelling &amp; Valuation Analyst (FMVA).\n- STATISTICS / ML: Coursera Applied Data Science with Python (University of Michigan) | Stanford ML Certificate (Andrew Ng) — include only if you completed the full specialization and can discuss the content in depth.\n\nMENTORQUE • Data &amp; Business Analyst Resume Blueprint\n<physical_index_7>"
+        }
+      ]
+    }
+  ]
+}

@@ -12,7 +12,8 @@
     "both": "./run both",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
-    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./frontend\" --filter \"./backend\" --if-present run typecheck"
+    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./frontend\" --filter \"./backend\" --if-present run typecheck",
+    "check-pageindex-retrieval": "pnpm --filter @workspace/api-server run check-pageindex-retrieval"
   },
   "private": true,
   "devDependencies": {

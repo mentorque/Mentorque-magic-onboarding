@@ -1,0 +1,134 @@
+{
+  "doc_id": "pi-cmoaez67y02f601qtiwdrb474",
+  "status": "completed",
+  "retrieval_ready": false,
+  "result": [
+    {
+      "title": "Preface",
+      "node_id": "0000",
+      "page_index": 1
+    },
+    {
+      "title": "1.5 Contact Section",
+      "node_id": "0001",
+      "page_index": 2
+    },
+    {
+      "title": "PART 2 — PROFESSIONAL SUMMARY",
+      "node_id": "0002",
+      "page_index": 2
+    },
+    {
+      "title": "PART 3 — EDUCATION",
+      "node_id": "0003",
+      "page_index": 2
+    },
+    {
+      "title": "PART 4 — CERTIFICATIONS &amp; CREDENTIALS",
+      "node_id": "0004",
+      "page_index": 3
+    },
+    {
+      "title": "PART 5 — TAILORING, SUBMISSION &amp; FINAL CHECKS",
+      "node_id": "0005",
+      "page_index": 3,
+      "nodes": [
+        {
+          "title": "5.1 Tailoring for Every Application",
+          "node_id": "0006",
+          "page_index": 3,
+          "text": "<physical_index_3>\n## 5.1 Tailoring for Every Application\n\n- Read the job description twice. First pass: understand the role. Second pass: extract the top 6–8 required skills, tools, and outcomes.\n- Mirror JD language in your summary, skills, and top 2–3 bullets. Not paraphrased — exact terms. ATS matches strings.\n- Reorder your skills section so the most JD-relevant category appears first.\n- Swap in 1–2 role-specific bullets you have prepared in a 'backup bullet bank' — a separate document where you keep 3–5 additional bullets per role that didn't fit the one-page constraint.\n- Rewrite your summary for every application. This is 10 minutes of work. It is also the single highest-ROI activity in job searching.\n- Time investment per application: 15–20 minutes of tailoring is the difference between a 2% and a 25% response rate.\n<physical_index_3>"
+        },
+        {
+          "title": "5.2 The 10-Second Scan Test",
+          "node_id": "0007",
+          "page_index": 3,
+          "text": "<physical_index_3>\n## 5.2 The 10-Second Scan Test\n\n- Open your resume. Set a 10-second timer. Look at it fresh. What registers immediately?\n- Your name, current title, and most recent company should be instantly legible without searching.\n- At least one metric (%, $, scale) should be visible in the first 3 bullets of work experience without zooming.\n- If the page looks like a grey block of text — restructure. More white space, shorter bullets, bolder company names.\n- Have one person who doesn't know your career history read it for 10 seconds and tell you what you do. If they can't, the summary and top section need rewriting.\n<physical_index_3>"
+        },
+        {
+          "title": "5.3 Pre-Submission Checklist",
+          "node_id": "0008",
+          "page_index": 3,
+          "text": "<physical_index_3>\n## 5.3 Pre-Submission Checklist\n<physical_index_3>\n\n<physical_index_4>\n✓ One page (or genuinely justified two pages for 8+ year profiles).\n✓ No typos — spell-check and then manually read every line, top to bottom.\n✓ Consistent tense: present for current role, past tense for all previous roles.\n✓ Every bullet leads with an action verb. Zero instances of 'Responsible for' or 'Worked on'.\n✓ Every bullet contains at least one quantifier or meaningful scope qualifier.\n✓ Date format consistent throughout (e.g., 'Jan 2022' — not mixing 'January 2022' and '01/22').\n✓ LinkedIn URL is customized and the profile is live and complete.\n✓ PDF opens correctly and maintains formatting on both desktop and mobile.\n✓ File named: FirstName_LastName_Resume.pdf.\n✓ Top 6 keywords from the target JD appear naturally in the resume.\n<physical_index_4>"
+        },
+        {
+          "title": "5.4 Universal Resume Mistakes",
+          "node_id": "0009",
+          "page_index": 4,
+          "text": "<physical_index_4>\n## 5.4 Universal Resume Mistakes\n\n|  ❌Stop Doing This | ✓ Do This Instead  |\n| --- | --- |\n|  Objective statement: 'Seeking a challenging role where I can grow'\nSkill bars, star ratings, or proficiency percentages\n'Responsible for managing...' / 'Worked on...'\nDuties listed without a single outcome or result\nNo numbers anywhere — no %, $, time saved, or scale\nIdentical resume sent to every job application\nThree-page resume with two years of experience\n'References available upon request' — wastes space\nSoft skills section: 'Teamwork, Communication, Leadership'\nRandom bold text used for emphasis instead of scannability | 3-line tailored summary: title + proof metric + direction\nGrouped skill categories, clean comma-separated list\nStrong past-tense action verb + specific outcome\nSTAR-format bullets: action + scope + quantified result\nEvery role has at least one number: revenue, %, users, time\n15-minute tailored version per application, every time\n1 tight, dense, high-signal page — 2 only if truly warranted\nRemove it entirely — it occupies prime real estate\nLet the bullets prove soft skills — never claim them\nBold only: company names, job titles, key tech anchors  |\n\nPART 6 — PROFESSIONAL SUMMARY (SDE / SWE / Cloud)\n<physical_index_4>"
+        },
+        {
+          "title": "6.1 What Recruiters Look For in an SDE Summary",
+          "node_id": "0010",
+          "page_index": 4,
+          "text": "<physical_index_4>\n## 6.1 What Recruiters Look For in an SDE Summary\n\n- Stack clarity: what languages and systems do you live in? Recruiters scan for their required tech in the first sentence.\n- Scale signal: how large were the systems you built or maintained? Users, requests/day, data volume, or team size.\n- Impact framing: performance gains, reliability improvements, or shipping velocity — not just 'built features'.\n- Seniority signal: junior resumes show 'built X using Y'; senior resumes show 'designed, scaled, and owned X serving Y'.\n<physical_index_4>"
+        },
+        {
+          "title": "6.2 Summary Formula for SDE / Cloud",
+          "node_id": "0011",
+          "page_index": 4,
+          "text": "<physical_index_4>\n## 6.2 Summary Formula for SDE / Cloud\n\n[X-year] [role: Backend/Full-Stack/Cloud/Platform Engineer] with expertise in [primary stack: language + framework + infra].\n[Strongest achievement: what you built/optimized + measurable outcome: latency %, uptime, cost, users served].\nFocused on [system design area: distributed systems / reliability / developer productivity] for [team type: product-led / infra / platform] teams.\n<physical_index_4>"
+        },
+        {
+          "title": "6.3 Worked Examples (Model Summaries)",
+          "node_id": "0012",
+          "page_index": 4,
+          "text": "<physical_index_4>\n## 6.3 Worked Examples (Model Summaries)\n<physical_index_4>"
+        }
+      ]
+    },
+    {
+      "title": "PART 7 — SKILLS &amp; TECHNICAL EXPERTISE (5DE / Cloud)",
+      "node_id": "0013",
+      "page_index": 5
+    },
+    {
+      "title": "PART 8 — WORK EXPERIENCE (5DE / Cloud)",
+      "node_id": "0014",
+      "page_index": 5,
+      "nodes": [
+        {
+          "title": "8.1 Role Header Format",
+          "node_id": "0015",
+          "page_index": 5,
+          "text": "<physical_index_5>\n## 8.1 Role Header Format\n<physical_index_5>\n\n<physical_index_6>\nSoftware Engineer | Company Name (Series B SaaS, 150 employees) | Jan 2022 – Present\nCity, Country (or 'Remote')\n\n- Add company context in parentheses if the company is not well-known: stage (Series B), sector (fintech), and size (150 employees). One line, parenthetical.\n- Most recent role: 4–5 bullets. Previous roles: 2–3 bullets. Roles older than 7 years: 1–2 bullets or consider removing.\n- Promote to top: the one bullet from each role that most directly mirrors the JD you're targeting.\n<physical_index_6>"
+        },
+        {
+          "title": "8.2 The Impact Bullet Framework",
+          "node_id": "0016",
+          "page_index": 6,
+          "text": "<physical_index_6>\n## 8.2 The Impact Bullet Framework\n\nSTRUCTURE: [Action Verb] + [What + How (technical specifics)] + [Result with metric]\n\nEXAMPLE: Redesigned + the authentication service (Node.js + Redis session store) + cutting P95 login latency from 1.8s to 340ms for 800K MAU.\n<physical_index_6>"
+        },
+        {
+          "title": "8.3 The Four Metric Dimensions for SDE",
+          "node_id": "0017",
+          "page_index": 6,
+          "text": "<physical_index_6>\n## 8.3 The Four Metric Dimensions for SDE\n\n- PERFORMANCE: Latency (P50/P95/P99), throughput (req/sec, events/day), error rate (%), uptime (99.9% → 99.99%). These are the most credible engineering metrics.\n- SCALE: Users (DAU/MAU), data volume (TB/day), traffic (RPS), infrastructure size (pods, nodes, services). Scale signals that your experience is production-grade.\n- COST: Infrastructure savings ($K/year), compute reduction (%), licensing eliminations. Financial impact resonates with both engineering managers and executives.\n- VELOCITY: Deployment frequency (releases/week), CI pipeline time reduction (minutes), test coverage increase (%), PR cycle time. These signal engineering culture contribution.\n- When you cannot find a hard metric: use scope. 'Used by 8 internal teams', 'adopted as the org-wide standard', 'reduced on-call incidents from 12/week to 2/week'.\n<physical_index_6>"
+        },
+        {
+          "title": "8.4 Strong Action Verb Bank (SDE)",
+          "node_id": "0018",
+          "page_index": 6,
+          "text": "<physical_index_6>\n## 8.4 Strong Action Verb Bank (SDE)\n\nArchitected • Engineered • Designed • Built • Implemented • Shipped • Deployed • Scaled • Optimized • Refactored • Migrated • Automated • Instrumented • Debugged • Integrated • Containerized • Orchestrated • Provisioned • Benchmarked • Open-sourced\n<physical_index_6>"
+        },
+        {
+          "title": "8.5 Before vs. After — SDE Bullets",
+          "node_id": "0019",
+          "page_index": 6,
+          "text": "<physical_index_6>\n## 8.5 Before vs. After — SDE Bullets\n\n|  ❌Vague (Never Write These) | ✓ Specific (Write These Instead)  |\n| --- | --- |\n|  Worked on backend APIs for the product | Built 12 REST endpoints (Node.js + PostgreSQL) for the core order management service, reducing client-side data fetching by 60%  |\n|  Responsible for database optimization | Reindexed 3 high-traffic PostgreSQL tables and rewrote 5 N+1 queries, cutting average API response time from 1.4s to 210ms  |\n|  Helped migrate services to the cloud | Migrated 4 monolithic services to AWS Lambda + API Gateway, reducing infrastructure cost by $38K/year and eliminating 2 on-call incidents/week  |\n|  Fixed bugs and improved code quality | Eliminated 220 production bugs across 3 sprints by introducing automated Jest + Supertest coverage from 4% to 81%  |\n|  Wrote unit tests for the application | Increased unit and integration test coverage from 12% to 79%, reducing production regression incidents by 65% over two quarters  |\n|  Worked in an Agile development team | Led adoption of 2-week sprint cadence for a 6-engineer team, improving on-time delivery rate from 54% to 91% over two quarters  |\n<physical_index_6>"
+        },
+        {
+          "title": "8.6 Demonstrating Seniority Through Bullets",
+          "node_id": "0020",
+          "page_index": 6,
+          "text": "<physical_index_6>\n## 8.6 Demonstrating Seniority Through Bullets\n\n- Junior: 'Built X feature using Y technology' — shows execution ability.\n- Mid-level: 'Designed and built X, improving Y by Z%' — shows ownership and impact.\n- Senior: 'Defined architecture for X, led 3-engineer squad to deliver in 6 weeks, reducing Y by Z%' — shows leadership, design judgment, and measurable delivery.\n<physical_index_6>\n\n<physical_index_7>\n- Staff/Principal: 'Set technical direction for X across 4 teams, establishing org-wide standard that reduced Y by Z%' — shows org-level influence.\n- The gap between junior and senior bullets is not the vocabulary — it's the scope of ownership expressed.\n\n---\n<physical_index_7>"
+        }
+      ]
+    },
+    {
+      "title": "PART 9 — PROJECTS (SDE / Cloud)",
+      "node_id": "0021",
+      "page_index": 7
+    }
+  ]
+}

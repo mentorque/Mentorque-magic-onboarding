@@ -1,0 +1,95 @@
+{
+  "doc_id": "pi-cmoaei0xg02dl01qtm29ymz1e",
+  "status": "completed",
+  "retrieval_ready": false,
+  "result": [
+    {
+      "title": "Preface",
+      "node_id": "0000",
+      "page_index": 1
+    },
+    {
+      "title": "1.5 Contact Section",
+      "node_id": "0001",
+      "page_index": 2
+    },
+    {
+      "title": "PART 2 — PROFESSIONAL SUMMARY",
+      "node_id": "0002",
+      "page_index": 2
+    },
+    {
+      "title": "PART 3 — EDUCATION",
+      "node_id": "0003",
+      "page_index": 2
+    },
+    {
+      "title": "PART 4 — CERTIFICATIONS &amp; CREDENTIALS",
+      "node_id": "0004",
+      "page_index": 3
+    },
+    {
+      "title": "PART 5 — TAILORING, SUBMISSION &amp; FINAL CHECKS",
+      "node_id": "0005",
+      "page_index": 3
+    },
+    {
+      "title": "PART 6 — PROFESSIONAL SUMMARY (SDE / SWE / Cloud)",
+      "node_id": "0006",
+      "page_index": 4
+    },
+    {
+      "title": "PART 7 — SKILLS &amp; TECHNICAL EXPERTISE (5DE / Cloud)",
+      "node_id": "0007",
+      "page_index": 5
+    },
+    {
+      "title": "PART 8 — WORK EXPERIENCE (5DE / Cloud)",
+      "node_id": "0008",
+      "page_index": 5,
+      "nodes": [
+        {
+          "title": "8.1 Role Header Format",
+          "node_id": "0009",
+          "page_index": 5,
+          "text": "<physical_index_5>\n## 8.1 Role Header Format\n<physical_index_5>\n\n<physical_index_6>\nSoftware Engineer | Company Name (Series B SaaS, 150 employees) | Jan 2022 – Present\nCity, Country (or 'Remote')\n\n- Add company context in parentheses if the company is not well-known: stage (Series B), sector (fintech), and size (150 employees). One line, parenthetical.\n- Most recent role: 4–5 bullets. Previous roles: 2–3 bullets. Roles older than 7 years: 1–2 bullets or consider removing.\n- Promote to top: the one bullet from each role that most directly mirrors the JD you're targeting.\n<physical_index_6>"
+        },
+        {
+          "title": "8.2 The Impact Bullet Framework",
+          "node_id": "0010",
+          "page_index": 6,
+          "text": "<physical_index_6>\n## 8.2 The Impact Bullet Framework\n\nSTRUCTURE: [Action Verb] + [What + How (technical specifics)] + [Result with metric]\n\nEXAMPLE: Redesigned + the authentication service (Node.js + Redis session store) + cutting P95 login latency from 1.8s to 340ms for 800K MAU.\n<physical_index_6>"
+        },
+        {
+          "title": "8.3 The Four Metric Dimensions for SDE",
+          "node_id": "0011",
+          "page_index": 6,
+          "text": "<physical_index_6>\n## 8.3 The Four Metric Dimensions for SDE\n\n- PERFORMANCE: Latency (P50/P95/P99), throughput (req/sec, events/day), error rate (%), uptime (99.9% → 99.99%). These are the most credible engineering metrics.\n- SCALE: Users (DAU/MAU), data volume (TB/day), traffic (RPS), infrastructure size (pods, nodes, services). Scale signals that your experience is production-grade.\n- COST: Infrastructure savings ($K/year), compute reduction (%), licensing eliminations. Financial impact resonates with both engineering managers and executives.\n- VELOCITY: Deployment frequency (releases/week), CI pipeline time reduction (minutes), test coverage increase (%), PR cycle time. These signal engineering culture contribution.\n- When you cannot find a hard metric: use scope. 'Used by 8 internal teams', 'adopted as the org-wide standard', 'reduced on-call incidents from 12/week to 2/week'.\n<physical_index_6>"
+        },
+        {
+          "title": "8.4 Strong Action Verb Bank (SDE)",
+          "node_id": "0012",
+          "page_index": 6,
+          "text": "<physical_index_6>\n## 8.4 Strong Action Verb Bank (SDE)\n\nArchitected • Engineered • Designed • Built • Implemented • Shipped • Deployed • Scaled • Optimized • Refactored • Migrated • Automated • Instrumented • Debugged • Integrated • Containerized • Orchestrated • Provisioned • Benchmarked • Open-sourced\n<physical_index_6>"
+        },
+        {
+          "title": "8.5 Before vs. After — SDE Bullets",
+          "node_id": "0013",
+          "page_index": 6,
+          "text": "<physical_index_6>\n## 8.5 Before vs. After — SDE Bullets\n\n|  **XVague (Never Write These)**\nWorked on backend APIs for the product\nResponsible for database optimization\nHelped migrate services to the cloud\nFixed bugs and improved code quality\nWrote unit tests for the application\nWorked in an Agile development team | **✓ Specific (Write These Instead)**\nBuilt 12 REST endpoints (Node.js + PostgreSQL) for the core order management service, reducing client-side data fetching by 60%\nReindexed 3 high-traffic PostgreSQL tables and rewrote 5 N+1 queries, cutting average API response time from 1.4s to 210ms\nMigrated 4 monolithic services to AWS Lambda + API Gateway, reducing infrastructure cost by $38K/year and eliminating 2 on-call incidents/week\nEliminated 220 production bugs across 3 sprints by introducing automated Jest + Supertest coverage from 4% to 81%\nIncreased unit and integration test coverage from 12% to 79%, reducing production regression incidents by 65% over two quarters\nLed adoption of 2-week sprint cadence for a 6-engineer team, improving on-time delivery rate from 54% to 91% over two quarters  |\n| --- | --- |\n<physical_index_6>"
+        },
+        {
+          "title": "8.6 Demonstrating Seniority Through Bullets",
+          "node_id": "0014",
+          "page_index": 6,
+          "text": "<physical_index_6>\n## 8.6 Demonstrating Seniority Through Bullets\n\n- Junior: 'Built X feature using Y technology' — shows execution ability.\n- Mid-level: 'Designed and built X, improving Y by Z%' — shows ownership and impact.\n- Senior: 'Defined architecture for X, led 3-engineer squad to deliver in 6 weeks, reducing Y by Z%' — shows leadership, design judgment, and measurable delivery.\n<physical_index_6>\n\n<physical_index_7>\n- Staff/Principal: 'Set technical direction for X across 4 teams, establishing org-wide standard that reduced Y by Z%' — shows org-level influence.\n- The gap between junior and senior bullets is not the vocabulary — it's the scope of ownership expressed.\n\n---\n<physical_index_7>"
+        }
+      ]
+    },
+    {
+      "title": "PART 9 — PROJECTS (SDE / Cloud)",
+      "node_id": "0015",
+      "page_index": 7
+    }
+  ]
+}

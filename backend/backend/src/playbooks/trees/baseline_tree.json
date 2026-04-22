@@ -1,0 +1,42 @@
+{
+  "doc_id": "pi-cmoael32i02dy01qtlufy29fj",
+  "status": "completed",
+  "retrieval_ready": false,
+  "result": [
+    {
+      "title": "Preface",
+      "node_id": "0000",
+      "page_index": 1
+    },
+    {
+      "title": "SKILLS SECTION",
+      "node_id": "0001",
+      "page_index": 2
+    },
+    {
+      "title": "OUTPUT FORMAT",
+      "node_id": "0002",
+      "page_index": 4
+    },
+    {
+      "title": "CHANGE CATEGORIES",
+      "node_id": "0003",
+      "page_index": 4
+    },
+    {
+      "title": "CHANGE LOG RULES",
+      "node_id": "0004",
+      "page_index": 4
+    },
+    {
+      "title": "SECTION MAPPING:",
+      "node_id": "0005",
+      "page_index": 4
+    },
+    {
+      "title": "REASON (shown as \"WHY THIS CHANGE\" — most important field):",
+      "node_id": "0006",
+      "page_index": 4
+    }
+  ]
+}

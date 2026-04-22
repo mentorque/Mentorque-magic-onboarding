@@ -8,9 +8,12 @@
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "backfill-questionnaire-revamp": "tsx src/scripts/backfillQuestionnaireRevamp.ts"
+    "backfill-questionnaire-revamp": "tsx src/scripts/backfillQuestionnaireRevamp.ts",
+    "build-pageindex": "tsx src/scripts/buildPageIndex.ts",
+    "check-pageindex-retrieval": "tsx src/scripts/checkPageIndexRetrieval.ts"
   },
   "dependencies": {
+    "@pageindex/sdk": "^0.8.0",
     "@workspace/api-zod": "workspace:*",
     "@workspace/db": "workspace:*",
     "cookie-parser": "^1.4.7",

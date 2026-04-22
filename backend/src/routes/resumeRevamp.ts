@@ -35,6 +35,7 @@ import {
   generateResumeFromActions,
 } from '../lib/studioApplyAI.js';
 import { computeStudioApplyBulletChanges } from '../lib/studioResumeDiff.js';
+import { buildPlaybookPromptContext } from "../lib/playbookPromptContext.js";
 
 const router = Router();
 const FALLBACK_PDF_NAME = '8e256776-bf9e-46e2-948c-6e072e22f307.pdf';
@@ -397,7 +398,17 @@ router.post(
         })),
       );
       const schemaOutline = buildResumeSchemaOutline(currentRevampedResume);
-      const actionItems = await extractActionItemsFromFeedback(digest, schemaOutline);
+      const { domain, contextBlock } = buildPlaybookPromptContext({
+        resume: currentRevampedResume,
+      });
+      const domainGuidance = contextBlock
+        ? `${contextBlock}\n\nDetected domain: ${domain}`
+        : `Detected domain: ${domain}`;
+      const actionItems = await extractActionItemsFromFeedback(
+        digest,
+        schemaOutline,
+        domainGuidance,
+      );
 
       if (actionItems.length === 0) {
         return res.status(400).json({
@@ -410,6 +421,7 @@ router.post(
       const mergedResume = await generateResumeFromActions(
         currentRevampedResume,
         actionItems,
+        domainGuidance,
       );
       const sanitized = sanitizeForCompiler(mergedResume);
 

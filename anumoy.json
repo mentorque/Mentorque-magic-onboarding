@@ -1,183 +1,113 @@
 {
-    "personalInfo": {
-      "firstName": "Arumoy",
-      "lastName": "Saha",
-      "email": "arumoy91@gmail.com",
-      "phoneNumber": "+353-830821151",
-      "location": "Dublin, Ireland"
-    },
-    "professionalSummary": "Business Analyst with 6+ years of experience across retail and digital operations, specializing in SDLC, business analytics, process optimization, and agile delivery.Experienced in working with complex operational datasets, translating business requirements into scalable workflows, and driving process improvements across cross-functional teams. Proficient in Python, SQL, ServiceNow, and Power BI with hands-on experience in workflow automation, reporting solutions, and data-driven decision support systems.",
-    "sectionOrder": [
+  "personalInfo": {
+      "email": "kunal.sonawane1101@gmail.com",
+      "lastName": "Sonawane",
+      "linkedin": "LinkedIn",
+      "location": "D09HX38, Dublin",
+      "firstName": "Kunal",
+      "phoneNumber": "(+353) 899442753"
+  },
+  "professionalSummary": "Data Analyst with 2+ years of experience delivering data-driven insights and building scalable reporting solutions. Proficient in SQL, Python, and Power BI to analyse large-scale operational datasets, uncover trends, and drive measurable process improvements and optimisation. Adept at translating complex data into clear, actionable insights for both technical and non-technical stakeholders. Holds an MSc in Data Analytics from National College of Ireland, Dublin.",
+  "education": [
+      {
+          "degree": "MSc Data Analytics",
+          "endDate": "Jan 2026",
+          "startDate": "Jan 2025",
+          "coursework": [],
+          "institution": "National College of Ireland, Dublin, Ireland"
+      },
+      {
+          "degree": "B.E Computer Science & Engineering",
+          "endDate": "Aug 2022",
+          "startDate": "Aug 2019",
+          "coursework": [],
+          "institution": "SPPU, Pune, India"
+      }
+  ],
+  "experience": [
+      {
+          "company": "Infosys ltd.",
+          "endDate": "Dec 2024",
+          "position": "Data Analyst",
+          "startDate": "Nov 2022",
+          "highlights": [
+              "Analysed 50-100 operational access records monthly using Excel, identifying patterns, risk trends, and anomalies that accelerated stakeholder decision-making and reduced repeated access requests",
+              "Developed and maintained structured Power BI reporting frameworks tracking 5-10 operational KPIs, improving visibility across teams and enabling faster, more consistent decision-making for senior stakeholders.",
+              "Designed and implemented 10+ data-driven operational policies, reducing manual effort in approval workflows by standardising decision criteria and eliminating reporting inconsistencies across the organization.",
+              "Presented weekly data findings and operational insights to 3-5 client stakeholders, translating complex data into clear, concise reports tailored for both technical and non-technical audiences.",
+              "Collaborated with a cross-functional team of 5-10 members to monitor operational trends, conduct root cause analysis on recurring issues, and implement data-backed process improvements."
+          ]
+      }
+  ],
+  "skills": [],
+  "projects": [
+      {
+          "name": "Business Intelligence & Customer Analytics Platform - Volt Metrics",
+          "toolsUsed": "SQL, Python, Power BI, DAX",
+          "highlights": [
+              "Analyzed 80,000+ sales transactions and 7,000+ customer records using SQL and Python to uncover revenue drivers and client purchasing behavior patterns, informing CRM and business strategy.",
+              "Built Power BI dashboards with DAX measures and executed customer segmentation identifying four high-value segments, reducing manual reporting by 40% and boosting client response rates by 15-20%."
+          ]
+      },
+      {
+          "name": "Phishing Detection Using Explainable AI and Transformer-Based Approach.",
+          "toolsUsed": "RoBERTa, Machine Learning, Python",
+          "highlights": [
+              "Examined 11,000+ real-world URLs to identify behavioral and structural indicators of phishing activity, improving early risk identification, using data pre-processing, feature analysis, and EDA.",
+              "Developed a hybrid phishing detection pipeline using RoBERTa embeddings and machine learning models, achieving 97% accuracy and <1% false negatives through statistical evaluation."
+          ]
+      },
+      {
+          "name": "Healthcare Data Analytics Drug Spending and Facility Analysis.",
+          "toolsUsed": "Python, Logistic Regression, Random Forest",
+          "highlights": [
+              "Analyzed large-scale healthcare datasets to uncover drug spending patterns and facility-level trends; segmented drugs into 4 cost-based clusters and identified high-cost outliers for cost-control analysis.",
+              "Developed classification models to evaluate nursing facility characteristics, informing data-driven organizational decision-making using Logistic Regression and Random Forest techniques."
+          ]
+      }
+  ],
+  "customSections": [],
+  "skillsDisplayMode": "lineTime",
+  "skillsLineTime": [
+      {
+          "skills": "Python (NumPy, Pandas, Matplotlib, Scikit-learn, TensorFlow)",
+          "heading": "Programming Language"
+      },
+      {
+          "skills": "MySQL, PostgreSQL, SQL (Joins, Window Functions, Query Optimization)",
+          "heading": "Databases"
+      },
+      {
+          "skills": "Power BI (DAX, Data Modelling, Dashboard Design, KPI Frameworks) Advanced Excel (Pivot Tables, Lookups (VLOOKUP/XLOOKUP))",
+          "heading": "BI & Visualization"
+      },
+      {
+          "skills": "KPI & SLA Reporting, Trend & Performance Analysis, Root Cause Analysis, Enterprise Reporting, Stakeholder Engagement & Data Literacy Support.",
+          "heading": "Data Analytics Strategy"
+      },
+      {
+          "skills": "Descriptive and Inferential Statistics, Hypothesis Testing, Correlation and Regression Analysis",
+          "heading": "Statistics"
+      },
+      {
+          "skills": "Cross-functional Collaboration, Stakeholder Communication, Problem-Solving, Relationship Building, Critical Thinking, Strong written and verbal communication skills, Strong Presentation Skills",
+          "heading": "Soft Skills"
+      }
+  ],
+  "sectionOrder": [
       "professionalSummary",
       "skills",
       "experience",
-      "education",
-      "custom-1776788773578",
-      "custom-1776788630915"
-    ],
-    "sectionNames": {
-      "professionalSummary": "Professional Summary",
-      "skills": "Technical Skills",
-      "workExperience": "Work Experience",
+      "projects",
+      "education"
+  ],
+  "sectionNames": {
+      "skills": "Skills & Expertise",
       "projects": "Projects",
       "education": "Education",
-      "experience": "Experience",
-      "custom-1776788630915": "Certification",
-      "custom-1776788773578": "Honours & Awards"
-    },
-    "education": [
-      {
-        "institution": "Maynooth University, Ireland",
-        "degree": "MSC in Business Analytics- (Secured2:1)",
-        "startDate": "Sep 2023",
-        "endDate": "Mar 2025",
-        "coursework": []
-      },
-      {
-        "institution": "IMT Hyderabad, India",
-        "degree": "MBA in Marketing -(Secured2:1)",
-        "startDate": "Jun 2016",
-        "endDate": "Mar 2018",
-        "coursework": []
-      },
-      {
-        "institution": "WBUT, India",
-        "degree": "B.Tech in IT - (Secured 1:1)",
-        "startDate": "Jun 2009",
-        "endDate": "Aug 2013",
-        "coursework": []
-      }
-    ],
-    "experience": [
-      {
-        "company": "EPM Group",
-        "position": "Project Coordinator",
-        "startDate": "Feb 2025",
-        "endDate": "Feb 2026",
-        "highlights": [
-          "Increased task fulfillment rate by 40% quarterly for financial clients, directly contributing to €1.2M in additional revenue growth per quarter.",
-          "Delivered end-to-end project execution, launching AI-integrated solutions that aligned with business goals and improved operational efficiency.",
-          "Raised customer NPS scores by 35% quarterly by ensuring on-time task completion and meeting client requirements.",
-          "Prioritized backlogs and facilitated scrum ceremonies, accelerating process improvements across cross-functional teams."
-        ]
-      },
-      {
-        "company": "PTSB (Contract-Morgan McKinley)",
-        "position": "Data Analyst (Procurement)",
-        "startDate": "Sep 2024",
-        "endDate": "Nov 2024",
-        "highlights": [
-          "Cleaned and validated supplier data on Project DORA, enabling accurate categorization and reducing reporting errors.",
-          "Analyzed third-party supplier spend using advanced Excel, delivering actionable insights that improved risk assessment for management."
-        ]
-      },
-      {
-        "company": "LTIMindtree",
-        "position": "Specialist Business Analyst",
-        "startDate": "Oct 2021",
-        "endDate": "Sep 2023",
-        "highlights": [
-          "Directed software teams to launch new brand sites, improving site loading speed by 60% and boosting search efficiency by 35%.",
-          "Delivered 23 data privacy sites for a major FMCG brand per quarter, standardizing design templates and optimizing product backlog prioritization.",
-          "Optimized risk management processes in ServiceNow, configuring changes that reduced manual intervention and improved compliance.",
-          "Consistently surpassed targets for capacity utilization and digital operations metrics across multiple projects.",
-          "Managed UAT and end-to-end testing phases, ensuring timely and high-quality project releases."
-        ]
-      },
-      {
-        "company": "Carbonate Pte Ltd",
-        "position": "Project analyst",
-        "startDate": "Feb 2020",
-        "endDate": "Oct 2021",
-        "highlights": [
-          "Authored product documentation that reduced IT issue resolution time by 45% per quarter and improved service delivery.",
-          "Cut product-level issues by 50% per quarter by coordinating feature launches with software teams and aligning with client requirements.",
-          "Managed 20+ client accounts, delivering end-to-end solutions on schedule through stakeholder coordination."
-        ]
-      },
-      {
-        "company": "Medlife",
-        "position": "Manager (Analytics & operations)",
-        "startDate": "Sep 2018",
-        "endDate": "Dec 2019",
-        "highlights": [
-          "Drove process improvement projects, reducing operational TAT by 20% and cutting annual city-level costs by 35%.",
-          "Identified and addressed customer needs, implementing solutions that enhanced team performance and client satisfaction.",
-          "Monitored city-level KPIs in sales, stock, audit, and security, ensuring store compliance and operational targets were met.",
-          "Resolved accounts receivable discrepancies promptly, minimizing financial irregularities and supporting audit readiness."
-        ]
-      },
-      {
-        "company": "Myntra",
-        "position": "Senior Analyst",
-        "startDate": "Nov 2014",
-        "endDate": "Jun 2016",
-        "highlights": [
-          "Improved order fulfillment by 60% and reduced return rates by 35% annually for key partners through process optimization.",
-          "Analyzed weekly KPIs and drove continuous improvement initiatives, generating reports that informed business decisions.",
-          "Increased vendor service delivery performance by 35% quarterly by monitoring and optimizing key partner relationships.",
-          "Mapped last-mile delivery workflows and integrated third-party systems, resolving bottlenecks and enabling real-time updates."
-        ]
-      }
-    ],
-    "skills": [],
-    "skillsDisplayMode": "lineTime",
-    "skillsLineTime": [
-      {
-        "heading": "Languages",
-        "skills": "Python, SQL, Java"
-      },
-      {
-        "heading": "Frameworks",
-        "skills": "Pandas, NumPy, scikit-learn, FastAPI"
-      },
-      {
-        "heading": "Databases",
-        "skills": "MySQL, PostgreSQL, MongoDB"
-      },
-      {
-        "heading": "Cloud & DevOps",
-        "skills": "AWS, Docker, Git, Jira, ServiceNow"
-      },
-      {
-        "heading": "Analytics",
-        "skills": "Tableau, Power BI, Advanced Excel"
-      }
-    ],
-    "projects": [],
-    "customSections": [
-      {
-        "id": "1776788630915",
-        "name": "Certification",
-        "events": [
-          {
-            "eventName": "Lean Six Sigma Green Belt – KPMG (India)",
-            "year": "",
-            "highlights": []
-          },
-          {
-            "eventName": "Certified Scrum Master (CSM) – Scrum Alliance",
-            "year": "",
-            "highlights": []
-          }
-        ]
-      },
-      {
-        "id": "1776788773578",
-        "name": "Honours & Awards",
-        "events": [
-          {
-            "eventName": "Gracias Award – Scrum Master of the Quarter ",
-            "year": "(Q1 2022–23), LTIMindtree",
-            "highlights": []
-          },
-          {
-            "eventName": "SPOT-ON Team Award – Project Manager ",
-            "year": "(Q1 2022–23), LTIMindtree",
-            "highlights": []
-          }
-        ]
-      }
-    ],
-    "deletedSections": []
-  }
+      "experience": "Work Experience",
+      "professionalSummary": "Professional Summary"
+  },
+  "deletedSections": []
+
+}

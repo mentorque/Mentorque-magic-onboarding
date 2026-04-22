@@ -1,0 +1,127 @@
+{
+  "doc_id": "pi-cmoaejb8f02ds01qt27j4hepg",
+  "status": "completed",
+  "retrieval_ready": false,
+  "result": [
+    {
+      "title": "Preface",
+      "node_id": "0000",
+      "page_index": 1
+    },
+    {
+      "title": "1.5 Contact Section",
+      "node_id": "0001",
+      "page_index": 2
+    },
+    {
+      "title": "PART 2 — PROFESSIONAL SUMMARY",
+      "node_id": "0002",
+      "page_index": 2
+    },
+    {
+      "title": "PART 3 — EDUCATION",
+      "node_id": "0003",
+      "page_index": 2
+    },
+    {
+      "title": "PART 4 — CERTIFICATIONS &amp; CREDENTIALS",
+      "node_id": "0004",
+      "page_index": 3
+    },
+    {
+      "title": "PART 5 — TAILORING, SUBMISSION &amp; FINAL CHECKS",
+      "node_id": "0005",
+      "page_index": 3
+    },
+    {
+      "title": "PART 6 — PROFESSIONAL SUMMARY (Non-Tech Roles)",
+      "node_id": "0006",
+      "page_index": 4
+    },
+    {
+      "title": "PART 7 — SKILLS &amp; EXPERTISE (PM / PjM / CS)",
+      "node_id": "0007",
+      "page_index": 5,
+      "nodes": [
+        {
+          "title": "7.1 Product Manager Skills",
+          "node_id": "0008",
+          "page_index": 5,
+          "text": "<physical_index_5>\n## 7.1 Product Manager Skills\n\nProduct Execution: JIRA, Confluence, Productboard, Linear, Notion, Monday.com\n\nDesign &amp; Research: Figma, Miro, UserTesting, Dovetail, Maze, Hotjar\n\nAnalytics: SQL (intermediate), Amplitude, Mixpanel, Google Analytics, Heap, Looker\n\nFrameworks: Agile/Scrum, JTBD, OKRs, RICE Prioritization, ICE Scoring, Design Thinking\n\nExperimentation: A/B Testing, Feature Flags (LaunchDarkly), Hypothesis Framing\n\nDomain: B2B SaaS / Payments / Marketplace / Consumer / API Products (list what applies)\n<physical_index_5>"
+        },
+        {
+          "title": "7.2 Project Manager Skills",
+          "node_id": "0009",
+          "page_index": 5,
+          "text": "<physical_index_5>\n## 7.2 Project Manager Skills\n\nMethodologies: Agile (Scrum, Kanban), Waterfall, PRINCE2, PMP, Six Sigma (Green Belt)\n\nPM Tools: MS Project, Smartsheet, JIRA, Asana, Monday.com, Trello, Wrike\n\nReporting &amp; Docs: Confluence, SharePoint, Power BI (reporting), Excel (advanced), Visio\n\nProgramme Skills: Budget Management, Risk &amp; Issue Logs, RAID, Change Control, RACI\n\nStakeholder Mgmt: Executive Steering Committees, Vendor Management, Contract Negotiation\n<physical_index_5>\n\n<physical_index_6>\nDomain: IT Delivery / Digital Transformation / Infrastructure / ERP / Change Management\n<physical_index_6>"
+        },
+        {
+          "title": "7.3 Customer Success Manager Skills",
+          "node_id": "0010",
+          "page_index": 6,
+          "text": "<physical_index_6>\n## 7.3 Customer Success Manager Skills\n\nCRM &amp; CS Platforms: Salesforce, HubSpot, Gainsight, ChurnZero, Totango, Planhat\n\nCommunication: Executive QBRs, EBRs, Success Plans, Renewal Playbooks, Stakeholder Mapping\n\nAnalytics: Salesforce Reporting, Looker, Tableau, Excel (advanced), Health Score Modelling\n\nCS Frameworks: SPICED, MEDDIC, Customer Health Scoring, Expansion Plays, Churn Prevention\n\nProduct Knowledge: Product Adoption Tracking, Onboarding Design, Feature Advocacy, VOC Programs\n\nDomain: HR Tech / Fintech / DevTools / Martech / CX (list your actual domain)\n\n- Avoid generic soft skill clusters like 'Communication, Leadership, Teamwork' — every candidate lists these. Your bullets must prove soft skills; never claim them in the skills section.\n- For PM and CS: if you can write SQL for analysis, say so. 'SQL (intermediate queries for product analytics)' is a meaningful differentiator in a field where most candidates cannot query data independently.\n\nPART 8 - WORK EXPERIENCE (PM / PjM / CS)\n<physical_index_6>"
+        },
+        {
+          "title": "8.1 Role Header Format",
+          "node_id": "0011",
+          "page_index": 6,
+          "text": "<physical_index_6>\n## 8.1 Role Header Format\n\nSenior Product Manager | Company Name (Series B B2B SaaS, 180 employees) | Jul 2021 – Present\n\nCity, Country (or 'Remote')\n<physical_index_6>"
+        },
+        {
+          "title": "8.2 The PM Bullet Framework",
+          "node_id": "0012",
+          "page_index": 6,
+          "text": "<physical_index_6>\n## 8.2 The PM Bullet Framework\n\nSTRUCTURE: [Action Verb] + [What product/feature/initiative] + [Cross-functional context / decision method] + [User / business outcome]\n\nEXAMPLE: Defined and launched a self-serve onboarding flow (PRD → Figma → A/B test, n=12K users), reducing median time-to-first-value from 9 days to 22 hours and increasing D30 retention by 14 percentage points.\n<physical_index_6>"
+        },
+        {
+          "title": "8.3 The PjM Bullet Framework",
+          "node_id": "0013",
+          "page_index": 6,
+          "text": "<physical_index_6>\n## 8.3 The PjM Bullet Framework\n\nSTRUCTURE: [Action Verb] + [Project name / type + scale: budget, team size] + [Delivery context: on-time, under-budget, specific challenge overcome] + [Business outcome]\n\nEXAMPLE: Delivered a $4.8M Salesforce CRM implementation for 1,200-user financial services firm across 3 countries, 5 weeks ahead of schedule and 11% under budget, enabling a consolidated 360 customer view that reduced average customer onboarding time by 8 days.\n<physical_index_6>"
+        },
+        {
+          "title": "8.4 The CS Bullet Framework",
+          "node_id": "0014",
+          "page_index": 6,
+          "text": "<physical_index_6>\n## 8.4 The CS Bullet Framework\n\nSTRUCTURE: [Action Verb] + [What CS motion: QBR / health monitoring / onboarding / renewal / upsell] + [Account context: ARR, segment, number of accounts] + [Retention or expansion outcome]\n\nEXAMPLE: Developed and executed a structured 90-day onboarding programme for 12 new enterprise accounts ($2.4M combined ARR), achieving 94% feature adoption by day 90 and reducing time-to-first-value from 6 weeks to 18 days.\n<physical_index_6>"
+        },
+        {
+          "title": "8.5 Key Metric Dimensions by Role",
+          "node_id": "0015",
+          "page_index": 6,
+          "text": "<physical_index_6>\n## 8.5 Key Metric Dimensions by Role\n<physical_index_6>"
+        },
+        {
+          "title": "8.6 Strong Action Verb Banks",
+          "node_id": "0016",
+          "page_index": 7,
+          "text": "<physical_index_7>\n## 8.6 Strong Action Verb Banks\n\nPM: Defined • Launched • Shipped • Prioritized • Drove • Aligned • Synthesized • Designed • Led • Spearheaded • Championed • Reduced • Increased • Improved • Accelerated • Validated\n\nPjM: Delivered • Managed • Led • Coordinated • Executed • Negotiated • Oversaw • Structured • Mitigated • Resolved • Governed • Facilitated • Tracked • Reported • Streamlined\n\nCS: Managed • Grew • Retained • Expanded • Onboarded • Renewed • Recovered • Developed • Drove • Executed • Facilitated • Built • Partnered • Identified • Reduced\n<physical_index_7>"
+        },
+        {
+          "title": "8.7 Before vs. After — PM / PjM / CS Bullets",
+          "node_id": "0017",
+          "page_index": 7,
+          "text": "<physical_index_7>\n## 8.7 Before vs. After — PM / PjM / CS Bullets\n<physical_index_7>"
+        },
+        {
+          "title": "9.1 Product Manager",
+          "node_id": "0018",
+          "page_index": 8,
+          "text": "<physical_index_8>\n## 9.1 Product Manager\n\n- CSPO (Certified Scrum Product Owner) — widely recognized, especially in Agile-first organizations.\n- PSPO (Professional Scrum Product Owner) — Scrum.org’s version, considered more rigorous than CSPO.\n- Product School Certificate — recognized by some companies, not universally respected. Less weight than CSPO/PSPO.\n- Reforge Programs (Growth, Retention, Experimentation) — strong signal at growth-stage tech companies. Highly respected by senior PMs.\n- Technical: SQL for Product Managers (Mode Analytics / Coursera), Google Analytics Certification — differentiating for data-driven PM roles.\n<physical_index_8>"
+        },
+        {
+          "title": "9.2 Project Manager",
+          "node_id": "0019",
+          "page_index": 8,
+          "text": "<physical_index_8>\n## 9.2 Project Manager\n\n- PMP (Project Management Professional, PMI) — the gold standard globally. Strongest single credential for senior PjM roles.\n- PRINCE2 Practitioner — essential for UK, Europe, Australia, and government/public sector projects. Less recognized in the US.\n- CSM (Certified Scrum Master) — important for Agile delivery roles or organizations running Scrum-based projects.\n- PMI-ACP (Agile Certified Practitioner) — for PjMs managing mixed Agile-Waterfall environments.\n- Six Sigma Green Belt / Black Belt — strong for operational excellence, manufacturing, supply chain, and process improvement roles.\n<physical_index_8>"
+        },
+        {
+          "title": "9.3 Customer Success",
+          "node_id": "0020",
+          "page_index": 8,
+          "text": "<physical_index_8>\n## 9.3 Customer Success\n\n- CCSM (Certified Customer Success Manager, SuccessCoaching) — the most established CS-specific certification.\n- Gainsight Certification (Gainsight University) — valuable signal for roles at companies using Gainsight as their CS platform.\n- Salesforce Certified Administrator / Sales Cloud Consultant — strong for CS roles where Salesforce is the primary CRM.\n- LinkedIn Learning CSM Foundations — low credential weight but signals intentional self-development at entry level.\n- HubSpot Customer Success Certification — relevant for SMB and startup CS roles using the HubSpot ecosystem.\n\nMENTORQUE • Product Management / Project Management / Customer Success Resume Blueprint\n<physical_index_8>"
+        }
+      ]
+    }
+  ]
+}

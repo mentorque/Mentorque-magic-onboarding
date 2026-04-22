@@ -1,0 +1,102 @@
+{
+  "doc_id": "pi-cmoaeij7202do01qt8ifjrtef",
+  "status": "completed",
+  "retrieval_ready": false,
+  "result": [
+    {
+      "title": "Preface",
+      "node_id": "0000",
+      "page_index": 1
+    },
+    {
+      "title": "1.5 Contact Section",
+      "node_id": "0001",
+      "page_index": 2
+    },
+    {
+      "title": "PART 2 — PROFESSIONAL SUMMARY",
+      "node_id": "0002",
+      "page_index": 2
+    },
+    {
+      "title": "PART 3 — EDUCATION",
+      "node_id": "0003",
+      "page_index": 2
+    },
+    {
+      "title": "PART 4 — CERTIFICATIONS &amp; CREDENTIALS",
+      "node_id": "0004",
+      "page_index": 3
+    },
+    {
+      "title": "PART 5 — TAILORING, SUBMISSION &amp; FINAL CHECKS",
+      "node_id": "0005",
+      "page_index": 3,
+      "nodes": [
+        {
+          "title": "5.1 Tailoring for Every Application",
+          "node_id": "0006",
+          "page_index": 3,
+          "text": "<physical_index_3>\n## 5.1 Tailoring for Every Application\n\n- Read the job description twice. First pass: understand the role. Second pass: extract the top 6–8 required skills, tools, and outcomes.\n- Mirror JD language in your summary, skills, and top 2–3 bullets. Not paraphrased — exact terms. ATS matches strings.\n- Reorder your skills section so the most JD-relevant category appears first.\n- Swap in 1–2 role-specific bullets you have prepared in a 'backup bullet bank' — a separate document where you keep 3–5 additional bullets per role that didn't fit the one-page constraint.\n- Rewrite your summary for every application. This is 10 minutes of work. It is also the single highest-ROI activity in job searching.\n- Time investment per application: 15–20 minutes of tailoring is the difference between a 2% and a 25% response rate.\n<physical_index_3>"
+        },
+        {
+          "title": "5.2 The 10-Second Scan Test",
+          "node_id": "0007",
+          "page_index": 3,
+          "text": "<physical_index_3>\n## 5.2 The 10-Second Scan Test\n\n- Open your resume. Set a 10-second timer. Look at it fresh. What registers immediately?\n- Your name, current title, and most recent company should be instantly legible without searching.\n- At least one metric (%, $, scale) should be visible in the first 3 bullets of work experience without zooming.\n- If the page looks like a grey block of text — restructure. More white space, shorter bullets, bolder company names.\n- Have one person who doesn't know your career history read it for 10 seconds and tell you what you do. If they can't, the summary and top section need rewriting.\n<physical_index_3>"
+        },
+        {
+          "title": "5.3 Pre-Submission Checklist",
+          "node_id": "0008",
+          "page_index": 3,
+          "text": "<physical_index_3>\n## 5.3 Pre-Submission Checklist\n<physical_index_3>\n\n<physical_index_4>\n✓ One page (or genuinely justified two pages for 8+ year profiles).\nNo typos — spell-check and then manually read every line, top to bottom.\n$\\checkmark$  Consistent tense: present for current role, past tense for all previous roles.\n✓ Every bullet leads with an action verb. Zero instances of 'Responsible for' or 'Worked on'.\n✓ Every bullet contains at least one quantifier or meaningful scope qualifier.\n✓ Date format consistent throughout (e.g., 'Jan 2022' — not mixing 'January 2022' and '01/22').\n$\\checkmark$  LinkedIn URL is customized and the profile is live and complete.\nPDF opens correctly and maintains formatting on both desktop and mobile.\nFile named: FirstName_LastName_Resume.pdf.\n$\\checkmark$  Top 6 keywords from the target JD appear naturally in the resume.\n<physical_index_4>"
+        },
+        {
+          "title": "5.4 Universal Resume Mistakes",
+          "node_id": "0009",
+          "page_index": 4,
+          "text": "<physical_index_4>\n## 5.4 Universal Resume Mistakes\n\n### XStop Doing This\n\nObjective statement: 'Seeking a challenging role where I can grow'\n\nSkill bars, star ratings, or proficiency percentages\n\n'Responsible for managing...' / 'Worked on...'\n\nDuties listed without a single outcome or result\n\nNo numbers anywhere — no %, $, time saved, or scale\n\nIdentical resume sent to every job application\n\nThree-page resume with two years of experience\n\n'References available upon request' - wastes space\n\nSoft skills section: 'Teamwork, Communication, Leadership'\n\nRandom bold text used for emphasis instead of scannability\n\n### Do This Instead\n\n3-line tailored summary: title + proof metric + direction\n\nGrouped skill categories, clean comma-separated list\n\nStrong past-tense action verb + specific outcome\n\nSTAR-format bullets: action + scope + quantified result\n\nEvery role has at least one number: revenue, %, users, time\n\n15-minute tailored version per application, every time\n\n1 tight, dense, high-signal page — 2 only if truly warranted\n\nRemove it entirely — it occupies prime real estate\n\nLet the bullets prove soft skills — never claim them\n\nBold only: company names, job titles, key tech anchors\n\nPART 6 - PROFESSIONAL SUMMARY (Data Science / ML / Data Engineering)\n<physical_index_4>"
+        },
+        {
+          "title": "6.1 What Hiring Managers Look for in DS/DE Summaries",
+          "node_id": "0010",
+          "page_index": 4,
+          "text": "<physical_index_4>\n## 6.1 What Hiring Managers Look for in DS/DE Summaries\n\n- Technical depth signal: naming specific algorithms, frameworks, or infrastructure choices signals you have hands-on depth, not just familiarity with terms.\n- Research vs. applied distinction: academic researchers should signal publications and model novelty; applied DS/MLE should signal deployment, scale, and business outcome.\n- Data Engineer vs. Data Scientist clarity: these are distinct roles in most organizations. Your summary must instantly communicate which track you are on.\n- Impact framing: 'built a model' is not an achievement. 'Deployed a model to production that reduced X by Y%' is. Emphasize deployment, adoption, and outcome — not just model building.\n- Scale evidence: model serving millions of predictions, pipelines processing TBs, or infrastructure supporting dozens of teams. Scale signals production-readiness.\n<physical_index_4>"
+        },
+        {
+          "title": "6.2 Summary Formula — Data Scientist",
+          "node_id": "0011",
+          "page_index": 4,
+          "text": "<physical_index_4>\n## 6.2 Summary Formula — Data Scientist\n\n[X-year] Data Scientist / ML Engineer with expertise in [core: NLP / Computer Vision / Recommender Systems / Time Series] using [primary stack: Python, PyTorch/TensorFlow, MLflow].\n\n[Strongest achievement: model deployed to production + measurable business outcome: revenue, reduction in cost, accuracy improvement, latency at scale].\n\nExperienced in [full ML lifecycle: experimentation  $\\rightarrow$  production deployment] and [domain: fintech / healthtech / e-commerce / enterprise].\n<physical_index_4>"
+        },
+        {
+          "title": "6.3 Summary Formula — Data Engineer",
+          "node_id": "0012",
+          "page_index": 4,
+          "text": "<physical_index_4>\n## 6.3 Summary Formula — Data Engineer\n\n[X-year] Data Engineer specializing in [primary stack: Spark, Airflow, dbt, Snowflake/BigQuery] and [cloud: AWS / GCP / Azure] data infrastructure.\n<physical_index_4>\n\n<physical_index_5>\n[Strongest achievement: pipeline scale handled + outcome: data freshness SLA, processing time reduced, downstream teams unblocked, cost saved].\n\nFocused on [specialization: real-time streaming / data lakehouse / analytics engineering / platform reliability] for [team type: analytics / ML / product] teams.\n<physical_index_5>"
+        },
+        {
+          "title": "6.4 Worked Examples",
+          "node_id": "0013",
+          "page_index": 5,
+          "text": "<physical_index_5>\n## 6.4 Worked Examples\n<physical_index_5>"
+        }
+      ]
+    },
+    {
+      "title": "PART 7 — SKILLS &amp; TECHNICAL EXPERTISE (DS / ML / DE)",
+      "node_id": "0014",
+      "page_index": 5
+    },
+    {
+      "title": "PART 8 - WORK EXPERIENCE (DS / ML / DE)",
+      "node_id": "0015",
+      "page_index": 6
+    },
+    {
+      "title": "PART 9 — HIGH-IMPACT CERTIFICATIONS (DS / ML / DE)",
+      "node_id": "0016",
+      "page_index": 7
+    }
+  ]
+}
