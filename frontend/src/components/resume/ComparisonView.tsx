@@ -165,10 +165,7 @@ function StudioRoboAvatar({
   return (
     <div className="shrink-0 rounded-full bg-white p-[2px] shadow-md ring-1 ring-black/10">
       <div
-        className={cn(
-          "relative overflow-hidden rounded-full bg-white",
-          inner,
-        )}
+        className={cn("relative overflow-hidden rounded-full bg-white", inner)}
       >
         <img
           src={studioRobohashSrc(seed)}
@@ -274,48 +271,102 @@ function CategoryBadge({ category }: { category?: ChangeCategory }) {
 
 // Hardcoded company data for the Company Fit card
 // Inline SVG components for real brand logos
-function AppleLogo({ className }: { className?: string }) {
+function DeltaLogo({ className, style }: { className?: string; style?: React.CSSProperties }) {
   return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path d="M18.71 19.5C17.88 20.74 17 21.95 15.66 21.97C14.32 22 13.89 21.18 12.37 21.18C10.84 21.18 10.37 21.95 9.09997 22C7.78997 22.05 6.79997 20.68 5.95997 19.47C4.24997 17 2.93997 12.45 4.69997 9.39C5.56997 7.87 7.12997 6.91 8.81997 6.88C10.1 6.86 11.32 7.75 12.11 7.75C12.89 7.75 14.37 6.68 15.92 6.84C16.57 6.87 18.39 7.1 19.56 8.82C19.47 8.88 17.39 10.1 17.41 12.63C17.44 15.65 20.06 16.66 20.09 16.67C20.06 16.74 19.67 18.11 18.71 19.5ZM13 3.5C13.73 2.67 14.94 2.04 15.94 2C16.07 3.17 15.6 4.35 14.9 5.19C14.21 6.04 13.07 6.7 11.95 6.61C11.8 5.46 12.36 4.26 13 3.5Z" />
+    <img
+      src="https://media.licdn.com/dms/image/v2/C560BAQG24v1Mn2vUHA/company-logo_200_200/company-logo_200_200/0/1673854584495?e=1778716800&v=beta&t=eEncZXsP23S8RRhc_AzyvXnaf8YPuFMZKt1ksF_Zk5A"
+      alt="Delta India Logo"
+      className={cn(className, "object-contain rounded-md")}
+      style={style}
+    />
+  );
+}
+
+function AIBLogo({ className, style }: { className?: string; style?: React.CSSProperties }) {
+  return (
+    <img
+      src="https://upload.wikimedia.org/wikipedia/en/thumb/4/4b/Allied_Irish_Banks_logo.svg/1280px-Allied_Irish_Banks_logo.svg.png"
+      alt="Allied Irish Banks Logo"
+      className={cn(className, "object-contain rounded-md")}
+      style={style}
+    />
+  );
+}
+
+function TallyLogo({ className, style }: { className?: string; style?: React.CSSProperties }) {
+  return (
+    <img
+      src="https://resources.tallysolutions.com/wp-content/themes/tally/assets/images/tally-logo-black.svg"
+      alt="Tally Logo"
+      className={cn(className, "object-contain brightness-0 invert")}
+      style={style}
+    />
+  );
+}
+
+function MerckLogo({ className, style }: { className?: string; style?: React.CSSProperties }) {
+  return (
+    <img
+      src="/logos/Mkgaa768x432.jpg"
+      alt="Merck Logo"
+      className={cn(className, "object-contain rounded-md")}
+      style={style}
+    />
+  );
+}
+
+function AramyaLogo({ className, style }: { className?: string; style?: React.CSSProperties }) {
+  return (
+    <svg className={className} style={style} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="100" height="100" rx="20" fill="currentColor" fillOpacity="0.1"/>
+      <text x="50%" y="54%" dominantBaseline="middle" textAnchor="middle" fontSize="48" fontWeight="bold" fill="currentColor">A</text>
     </svg>
   );
 }
 
-function AmazonLogo({ className }: { className?: string }) {
+function DPALogo({ className, style }: { className?: string; style?: React.CSSProperties }) {
   return (
-    <svg
-      className={className}
-      viewBox="0 0 48 48"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M25.4026553,25.9595294 C24.660417,27.4418824 23.3876054,28.3962353 22.0103725,28.7181176 C21.8015298,28.7181176 21.4826213,28.8225882 21.1637129,28.8225882 C18.835399,28.8225882 17.458166,27.0211765 17.458166,24.3727059 C17.458166,20.9788235 19.4703937,19.392 22.0103725,18.6465882 C23.3876054,18.3303529 24.9793255,18.2230588 26.5682233,18.2230588 L26.5682233,19.4964706 C26.5682233,21.9331765 26.6726447,23.8390588 25.4026553,25.9595294 Z M26.5682233,13.3524706 C25.1909904,13.4569412 23.5992703,13.5614118 22.0103725,13.7703529 C19.574815,14.0922353 17.1392576,14.5157647 15.1298521,15.4701176 C11.2098182,17.0597647 8.55977364,20.4508235 8.55977364,25.4287059 C8.55977364,31.6856471 12.5842289,34.8621176 17.6726531,34.8621176 C19.3659723,34.8621176 20.7432053,34.6475294 22.0103725,34.3341176 C24.0282445,33.696 25.7187415,32.5298824 27.7309692,30.4094118 C28.8965372,31.9990588 29.2182679,32.7444706 31.2276733,34.4385882 C31.7582467,34.6475294 32.28882,34.6475294 32.7093276,34.3341176 C33.9821392,33.2724706 36.208854,31.3637647 37.3715998,30.3049412 C37.9021732,29.8814118 37.7977518,29.2432941 37.4760212,28.7181176 C36.3132753,27.2329412 35.1448851,25.9595294 35.1448851,23.0992941 L35.1448851,13.5614118 C35.1448851,9.53505882 35.4666157,5.82494118 32.5004849,3.072 C30.0649275,0.849882353 26.2493149,0 23.2831841,0 L22.0103725,0 C16.6115064,0.313411765 10.8937319,2.64564706 9.61809814,9.32329412 C9.40643324,10.1731765 10.0442501,10.4894118 10.4675799,10.5938824 L16.3998415,11.3364706 C17.0348362,11.2291765 17.3537447,10.6983529 17.458166,10.1731765 C17.9859172,7.84094118 19.8937235,6.67482353 22.0103725,6.46023529 L22.4365245,6.46023529 C23.7093361,6.46023529 25.086569,6.99105882 25.8259851,8.05270588 C26.6726447,9.32329412 26.5682233,11.0202353 26.5682233,12.5054118 L26.5682233,13.3524706 Z"
-        fill="#FFFFFF"
-      />
-      <path
-        d="M41.0489247,38.8658824 C40.8090378,38.8630588 40.5635065,38.9195294 40.3349084,39.0268235 C33.5785648,41.7882353 28.16841,43.0136471 23.1618295,43.1209412 C14.7403887,43.1322353 8.31706456,39.4785882 1.83729642,35.8785882 C1.15150215,35.6978824 0.561662624,35.808 0.344353327,36.0112941 C0.12704403,36.2174118 0,36.5138824 0,36.816 C0,37.2084706 0.208887791,37.5698824 0.505218651,37.8042353 C6.58705678,43.0870588 13.25309,48 22.2192152,48 C28.453452,47.8644706 34.902176,45.936 39.9087564,42.7905882 C40.5945507,42.3783529 41.2493008,41.9322353 41.8673623,41.4381176 C42.2511813,41.1529412 42.516468,40.7068235 42.516468,40.2437647 C42.4995348,39.4221176 41.8024517,38.8658824 41.0489247,38.8658824 Z"
-        fill="#FF9A00"
-      />
+    <svg className={className} style={style} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="100" height="100" rx="20" fill="currentColor" fillOpacity="0.1"/>
+      <text x="50%" y="54%" dominantBaseline="middle" textAnchor="middle" fontSize="40" fontWeight="bold" fill="currentColor">DP</text>
     </svg>
   );
 }
 
-const COMPANIES = [
-  { name: "Google", icon: SiGoogle, color: "#4285F4" },
-  { name: "Meta", icon: SiMeta, color: "#0668E1" },
-  { name: "Stripe", icon: SiStripe, color: "#635BFF" },
-  { name: "Amazon", icon: AmazonLogo, color: "#FF9900" },
-  { name: "Shopify", icon: SiShopify, color: "#96BF48" },
-  { name: "Netflix", icon: SiNetflix, color: "#E50914" },
-  { name: "Apple", icon: AppleLogo, color: "#A2AAAD" },
+function KushalsLogo({ className, style }: { className?: string; style?: React.CSSProperties }) {
+  return (
+    <svg className={className} style={style} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="100" height="100" rx="20" fill="currentColor" fillOpacity="0.1"/>
+      <text x="50%" y="54%" dominantBaseline="middle" textAnchor="middle" fontSize="40" fontWeight="bold" fill="currentColor">KR</text>
+    </svg>
+  );
+}
+
+function MicrosoftLogo({ className, style }: { className?: string; style?: React.CSSProperties }) {
+  return (
+    <svg className={className} style={style} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="2" y="2" width="9" height="9" fill="#F25022"/>
+      <rect x="13" y="2" width="9" height="9" fill="#7FBA00"/>
+      <rect x="2" y="13" width="9" height="9" fill="#00A4EF"/>
+      <rect x="13" y="13" width="9" height="9" fill="#FFB900"/>
+    </svg>
+  );
+}
+
+
+type CompanyIcon = React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+
+const COMPANIES: Array<{ name: string; icon: CompanyIcon; color: string }> = [
+  { name: "Microsoft", icon: MicrosoftLogo, color: "#00A4EF" },
+  { name: "AIB", icon: AIBLogo, color: "#7F4194" },
+  { name: "Tally", icon: TallyLogo, color: "#CCCCCC" },
+  { name: "Delta", icon: DeltaLogo, color: "#145c34" },
+  { name: "Merck", icon: MerckLogo, color: "#635BFF" },
+  { name: "Aramya", icon: AramyaLogo, color: "#10B981" },
+  { name: "DPA", icon: DPALogo, color: "#3B82F6" },
+  { name: "Kushals", icon: KushalsLogo, color: "#F59E0B" },
 ];
+
 
 // ─── Bento Card Base ─────────────────────────────────────────────────────────────
 
@@ -539,177 +590,179 @@ function KeyChangesCard({
             </p>
           </div>
         ) : (
-        <div className="flex-1 min-h-0 relative overflow-hidden">
-          <AnimatePresence
-            mode="popLayout"
-            custom={{ direction: dir, action: animAction }}
-            initial={false}
-          >
-            <motion.div
-              key={`${displayIdx}-${isFlipped ? "insight" : "diff"}`}
+          <div className="flex-1 min-h-0 relative overflow-hidden">
+            <AnimatePresence
+              mode="popLayout"
               custom={{ direction: dir, action: animAction }}
-              variants={CARD_SLIDE_VARIANTS}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              transition={{
-                type: "spring",
-                stiffness: 120,
-                damping: 24,
-                mass: 1,
-              }}
-              className="flex flex-col justify-center h-full w-full"
+              initial={false}
             >
-              {!isFlipped ? (
-                /* ── FRONT FACE: original → revised diff ── */
-                <div className="flex flex-col justify-center gap-6 py-2">
-                  {/* Original */}
-                  <motion.div
-                    custom={0}
-                    variants={CONTENT_STAGGER_VARIANTS}
-                    initial="hidden"
-                    animate="visible"
-                    exit="exit"
-                    className="relative pl-6"
-                  >
-                    <div className="absolute left-0 top-1 bottom-1 w-[2px] bg-gradient-to-b from-red-400/60 to-red-500/20 rounded-full" />
-                    <p className="text-[11px] font-bold uppercase tracking-widest text-red-400/60 mb-1.5">
-                      Original
-                    </p>
-                    {isEditing ? (
-                      <textarea
-                        value={editOriginal}
-                        onChange={(e) => setEditOriginal(e.target.value)}
-                        rows={4}
-                        className="w-full resize-y rounded-xl border border-red-300/20 bg-black/30 px-3 py-2 text-sm leading-relaxed text-white/80 focus:outline-none focus:ring-2 focus:ring-red-400/30"
-                      />
-                    ) : (
-                      <p className="text-sm leading-relaxed font-normal text-white/50 relative">
-                        <span
-                          className="relative z-10"
-                          style={{
-                            textDecoration: "line-through",
-                            textDecorationColor: "rgba(248,113,113,0.8)",
-                            textDecorationThickness: "2px",
-                          }}
-                        >
-                          {visible?.original}
-                        </span>
+              <motion.div
+                key={`${displayIdx}-${isFlipped ? "insight" : "diff"}`}
+                custom={{ direction: dir, action: animAction }}
+                variants={CARD_SLIDE_VARIANTS}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{
+                  type: "spring",
+                  stiffness: 120,
+                  damping: 24,
+                  mass: 1,
+                }}
+                className="flex flex-col justify-center h-full w-full"
+              >
+                {!isFlipped ? (
+                  /* ── FRONT FACE: original → revised diff ── */
+                  <div className="flex flex-col justify-center gap-6 py-2">
+                    {/* Original */}
+                    <motion.div
+                      custom={0}
+                      variants={CONTENT_STAGGER_VARIANTS}
+                      initial="hidden"
+                      animate="visible"
+                      exit="exit"
+                      className="relative pl-6"
+                    >
+                      <div className="absolute left-0 top-1 bottom-1 w-[2px] bg-gradient-to-b from-red-400/60 to-red-500/20 rounded-full" />
+                      <p className="text-[11px] font-bold uppercase tracking-widest text-red-400/60 mb-1.5">
+                        Original
                       </p>
-                    )}
-                  </motion.div>
+                      {isEditing ? (
+                        <textarea
+                          value={editOriginal}
+                          onChange={(e) => setEditOriginal(e.target.value)}
+                          rows={4}
+                          className="w-full resize-y rounded-xl border border-red-300/20 bg-black/30 px-3 py-2 text-sm leading-relaxed text-white/80 focus:outline-none focus:ring-2 focus:ring-red-400/30"
+                        />
+                      ) : (
+                        <p className="text-sm leading-relaxed font-normal text-white/50 relative">
+                          <span
+                            className="relative z-10"
+                            style={{
+                              textDecoration: "line-through",
+                              textDecorationColor: "rgba(248,113,113,0.8)",
+                              textDecorationThickness: "2px",
+                            }}
+                          >
+                            {visible?.original}
+                          </span>
+                        </p>
+                      )}
+                    </motion.div>
 
-                  {/* Revised */}
-                  <motion.div
-                    custom={1}
-                    variants={CONTENT_STAGGER_VARIANTS}
-                    initial="hidden"
-                    animate="visible"
-                    exit="exit"
-                    className="relative pl-6"
-                  >
-                    <div className="absolute left-0 top-1 bottom-1 w-[2px] bg-gradient-to-b from-emerald-400/80 to-emerald-500/30 rounded-full shadow-[0_0_12px_rgba(16,185,129,0.4)]" />
-                    <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-400/80 mb-1.5">
-                      Optimized
-                    </p>
-                    {isEditing ? (
-                      <textarea
-                        value={editRevised}
-                        onChange={(e) => setEditRevised(e.target.value)}
-                        rows={4}
-                        className="w-full resize-y rounded-xl border border-emerald-300/20 bg-black/30 px-3 py-2 text-sm leading-relaxed text-white/90 focus:outline-none focus:ring-2 focus:ring-emerald-400/30"
-                      />
-                    ) : (
-                      <p className="text-base text-white/90 leading-relaxed font-medium relative">
-                        <span className="relative z-10">{visible?.revised}</span>
-                      </p>
-                    )}
-                  </motion.div>
-                </div>
-              ) : (
-                /* ── BACK FACE: coaching insight panel ── */
-                <div className="flex flex-col gap-4 py-2 overflow-y-auto custom-scrollbar">
-                  {/* Row 1: Category badge + Guideline ref */}
-                  <motion.div
-                    custom={0}
-                    variants={CONTENT_STAGGER_VARIANTS}
-                    initial="hidden"
-                    animate="visible"
-                    exit="exit"
-                    className="flex flex-wrap items-center gap-2"
-                  >
-                    <CategoryBadge category={visible?.category} />
-                    {visible?.guidelineRef && (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border bg-white/5 border-white/10 text-white/50">
-                        {visible.guidelineRef}
-                      </span>
-                    )}
-                  </motion.div>
-
-                  {/* Row 2: Metric callout (conditional) */}
-                  {visible?.metricHighlight && (
+                    {/* Revised */}
                     <motion.div
                       custom={1}
                       variants={CONTENT_STAGGER_VARIANTS}
                       initial="hidden"
                       animate="visible"
                       exit="exit"
-                      className="flex items-start gap-3 px-3.5 py-3 rounded-2xl bg-emerald-500/8 border border-emerald-500/20 shadow-[0_0_20px_rgba(16,185,129,0.1)]"
+                      className="relative pl-6"
                     >
-                      <span className="text-emerald-400 text-base leading-none mt-0.5">
-                        📊
-                      </span>
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400/80 mb-1">
-                          Metric Added
+                      <div className="absolute left-0 top-1 bottom-1 w-[2px] bg-gradient-to-b from-emerald-400/80 to-emerald-500/30 rounded-full shadow-[0_0_12px_rgba(16,185,129,0.4)]" />
+                      <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-400/80 mb-1.5">
+                        Optimized
+                      </p>
+                      {isEditing ? (
+                        <textarea
+                          value={editRevised}
+                          onChange={(e) => setEditRevised(e.target.value)}
+                          rows={4}
+                          className="w-full resize-y rounded-xl border border-emerald-300/20 bg-black/30 px-3 py-2 text-sm leading-relaxed text-white/90 focus:outline-none focus:ring-2 focus:ring-emerald-400/30"
+                        />
+                      ) : (
+                        <p className="text-base text-white/90 leading-relaxed font-medium relative">
+                          <span className="relative z-10">
+                            {visible?.revised}
+                          </span>
                         </p>
-                        <p className="text-sm text-emerald-300/90 font-medium leading-snug">
-                          {visible.metricHighlight}
-                        </p>
-                      </div>
+                      )}
                     </motion.div>
-                  )}
-
-                  {/* Row 3: Reason */}
-                  {visible?.reason && (
+                  </div>
+                ) : (
+                  /* ── BACK FACE: coaching insight panel ── */
+                  <div className="flex flex-col gap-4 py-2 overflow-y-auto custom-scrollbar">
+                    {/* Row 1: Category badge + Guideline ref */}
                     <motion.div
-                      custom={2}
+                      custom={0}
                       variants={CONTENT_STAGGER_VARIANTS}
                       initial="hidden"
                       animate="visible"
                       exit="exit"
-                      className="flex flex-col gap-1"
+                      className="flex flex-wrap items-center gap-2"
                     >
-                      <p className="text-[10px] font-black uppercase tracking-widest text-white/40">
-                        Why this change
-                      </p>
-                      <p className="text-sm text-white/80 leading-relaxed">
-                        {visible.reason}
-                      </p>
+                      <CategoryBadge category={visible?.category} />
+                      {visible?.guidelineRef && (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border bg-white/5 border-white/10 text-white/50">
+                          {visible.guidelineRef}
+                        </span>
+                      )}
                     </motion.div>
-                  )}
 
-                  {/* Row 4: Coach tip */}
-                  {visible?.coachTip && (
-                    <motion.div
-                      custom={3}
-                      variants={CONTENT_STAGGER_VARIANTS}
-                      initial="hidden"
-                      animate="visible"
-                      exit="exit"
-                      className="flex items-start gap-3 px-3.5 py-3 rounded-2xl bg-white/[0.04] border border-white/10"
-                    >
-                      <Lightbulb className="w-3.5 h-3.5 text-amber-400/80 shrink-0 mt-0.5" />
-                      <p className="text-xs text-white/60 leading-relaxed italic">
-                        {visible.coachTip}
-                      </p>
-                    </motion.div>
-                  )}
-                </div>
-              )}
-            </motion.div>
-          </AnimatePresence>
-        </div>
+                    {/* Row 2: Metric callout (conditional) */}
+                    {visible?.metricHighlight && (
+                      <motion.div
+                        custom={1}
+                        variants={CONTENT_STAGGER_VARIANTS}
+                        initial="hidden"
+                        animate="visible"
+                        exit="exit"
+                        className="flex items-start gap-3 px-3.5 py-3 rounded-2xl bg-emerald-500/8 border border-emerald-500/20 shadow-[0_0_20px_rgba(16,185,129,0.1)]"
+                      >
+                        <span className="text-emerald-400 text-base leading-none mt-0.5">
+                          📊
+                        </span>
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400/80 mb-1">
+                            Metric Added
+                          </p>
+                          <p className="text-sm text-emerald-300/90 font-medium leading-snug">
+                            {visible.metricHighlight}
+                          </p>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {/* Row 3: Reason */}
+                    {visible?.reason && (
+                      <motion.div
+                        custom={2}
+                        variants={CONTENT_STAGGER_VARIANTS}
+                        initial="hidden"
+                        animate="visible"
+                        exit="exit"
+                        className="flex flex-col gap-1"
+                      >
+                        <p className="text-[10px] font-black uppercase tracking-widest text-white/40">
+                          Why this change
+                        </p>
+                        <p className="text-sm text-white/80 leading-relaxed">
+                          {visible.reason}
+                        </p>
+                      </motion.div>
+                    )}
+
+                    {/* Row 4: Coach tip */}
+                    {visible?.coachTip && (
+                      <motion.div
+                        custom={3}
+                        variants={CONTENT_STAGGER_VARIANTS}
+                        initial="hidden"
+                        animate="visible"
+                        exit="exit"
+                        className="flex items-start gap-3 px-3.5 py-3 rounded-2xl bg-white/[0.04] border border-white/10"
+                      >
+                        <Lightbulb className="w-3.5 h-3.5 text-amber-400/80 shrink-0 mt-0.5" />
+                        <p className="text-xs text-white/60 leading-relaxed italic">
+                          {visible.coachTip}
+                        </p>
+                      </motion.div>
+                    )}
+                  </div>
+                )}
+              </motion.div>
+            </AnimatePresence>
+          </div>
         )}
 
         {/* ── Bottom bar: pagination counter + nav arrows + flip button ── */}
@@ -738,7 +791,9 @@ function KeyChangesCard({
                 </button>
                 <button
                   onClick={() => void saveEdit()}
-                  disabled={editSaving || !editOriginal.trim() || !editRevised.trim()}
+                  disabled={
+                    editSaving || !editOriginal.trim() || !editRevised.trim()
+                  }
                   className="p-2.5 rounded-xl border border-emerald-400/35 bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25 transition-all disabled:opacity-40"
                 >
                   {editSaving ? (
@@ -803,55 +858,57 @@ function KeyChangesCard({
 // ─── Card 3: Company Fit ─────────────────────────────────────────────────────────
 // Random success stories tied to companies
 const SUCCESS_STORIES: Record<string, { message: string; role: string }> = {
-  Google: {
+  Aramya: {
     message:
-      "One of our similar revamps got selection for SDE-2 role at Google",
-    role: "→ L4 SWE, Mountain View",
+      "One of our similar revamps led to a selection for a Software Development Engineer role at Aramya",
+    role: "→ SDE, Remote",
   },
-  Meta: {
-    message: "One of our similar revamps got selection for SDE-2 role at Meta",
-    role: "→ E5, Menlo Park",
-  },
-  Stripe: {
+  Tally: {
     message:
-      "One of our similar revamps got selection for SDE-2 role at Stripe",
-    role: "→ L3 Engineer, Remote",
+      "One of our similar revamps led to a selection for an SDE Intern role at Tally Solutions",
+    role: "→ SDE Intern, Bengaluru, KA",
   },
-  Amazon: {
+  Merck: {
     message:
-      "One of our similar revamps got selection for SDE-2 role at Amazon",
-    role: "→ L6 SDE, Seattle",
+      "One of our similar revamps led to a selection for an Analyst role at Merck KGaA",
+    role: "→ Analyst, Bengaluru, India",
   },
-  Shopify: {
+  AIB: {
     message:
-      "One of our similar revamps got selection for SDE-2 role at Shopify",
-    role: "→ Senior Developer, Remote",
+      "One of our similar revamps led to a selection for a Software Developer role at AIB (Allied Irish Bank)",
+    role: "→ SDE, Ireland",
   },
-  Netflix: {
+  DPA: {
     message:
-      "One of our similar revamps got selection for SDE-2 role at Netflix",
-    role: "→ Senior Engineer, Los Gatos",
+      "One of our similar revamps led to a selection for a Business Development Representative role at Dilip Patil and Associates",
+    role: "→ Business Development Representative, India",
+  },
+  Kushals: {
+    message:
+      "One of our similar revamps led to a selection for a Software Developer role at Kushal's Retail Pvt Ltd",
+    role: "→ Software Developer, Bengaluru",
   },
   Microsoft: {
     message:
-      "One of our similar revamps got selection for SDE-2 role at Microsoft",
-    role: "→ L62 SDE, Redmond",
+      "One of our similar revamps led to a selection for a Software Developer role at Microsoft",
+    role: "→ Software Developer, Dublin, Ireland",
   },
-  Apple: {
-    message: "One of our similar revamps got selection for SDE-2 role at Apple",
-    role: "→ ICT V, Cupertino",
+  Delta: {
+    message:
+      "One of our similar revamps led to a selection for a Data Analyst role at Delta India",
+    role: "→ Data Analyst, Pune, India",
   },
 };
 
 const SAMPLE_RESUME_PDFS: Record<string, string> = {
-  Google: "/sample-resume/shikhar-resume_redacted.pdf",
-  Meta: "/sample-resume/Snehashish_Resume_Redacted.pdf",
-  Stripe: "/sample-resume/vijayKumar_redacted.pdf",
-  Amazon: "/sample-resume/Reshu_Agarwal_redacted.pdf",
-  Shopify: "/sample-resume/Komal%20Joshi%20redacted.pdf",
-  Netflix: "/sample-resume/Pramod%20redacted.pdf",
+  Aramya: "/sample-resume/shikhar-resume_redacted.pdf",
+  Tally: "/sample-resume/Snehashish_Resume_Redacted.pdf",
+  Merck: "/sample-resume/vijayKumar_redacted.pdf",
+  AIB: "/sample-resume/Reshu_Agarwal_redacted.pdf",
+  DPA: "/sample-resume/Komal%20Joshi%20redacted.pdf",
+  Kushals: "/sample-resume/Pramod%20redacted.pdf",
   Microsoft: "/sample-resume/Agniva_Microsoft.pdf",
-  Apple: "/sample-resume/Prasad%20Katore%20redacted.pdf",
+  Delta: "/sample-resume/Prasad%20Katore%20redacted.pdf",
 };
 
 function CompanyFitCard({
@@ -1061,7 +1118,8 @@ function CompanyFitCard({
                       <SimplePdfViewer
                         pdfUrl={
                           selectedCompany
-                            ? SAMPLE_RESUME_PDFS[selectedCompany] ?? "/sample-resume.pdf"
+                            ? (SAMPLE_RESUME_PDFS[selectedCompany] ??
+                              "/sample-resume.pdf")
                             : "/sample-resume.pdf"
                         }
                         className="max-h-[600px] rounded-xl border border-white/5 shadow-2xl"
@@ -1192,9 +1250,7 @@ function SectionAnalysis({
   onGenerate?: () => void;
 }) {
   const sectionsWithChanges = useMemo(() => {
-    return SECTION_ORDER.filter((s) =>
-      changes.some((c) => c.section === s),
-    );
+    return SECTION_ORDER.filter((s) => changes.some((c) => c.section === s));
   }, [changes]);
 
   const [sectionIdx, setSectionIdx] = useState(0);
@@ -1360,22 +1416,25 @@ export function ComparisonView({
   const [highlightsRefreshTick, setHighlightsRefreshTick] = useState(0);
   const [focusHighlightId, setFocusHighlightId] = useState<string | null>(null);
   const [focusSignal, setFocusSignal] = useState(0);
-  const [focusStudioHighlightId, setFocusStudioHighlightId] = useState<string | null>(null);
+  const [focusStudioHighlightId, setFocusStudioHighlightId] = useState<
+    string | null
+  >(null);
   const [studioAuthorFilter, setStudioAuthorFilter] = useState<string>("all");
   /** After admin "Make Changes", merge API result into UI (parent often does not pass `onRevampResultApplied`). */
-  const [studioApplyResult, setStudioApplyResult] = useState<RevampResult | null>(null);
+  const [studioApplyResult, setStudioApplyResult] =
+    useState<RevampResult | null>(null);
 
   const displayRevamped = studioApplyResult?.revampedResume ?? revampedResume;
   const displayChanges = studioApplyResult?.changes ?? changes;
-  const displayPdf = studioApplyResult?.compiledPdfUrl ?? compiledPdfUrl ?? null;
+  const displayPdf =
+    studioApplyResult?.compiledPdfUrl ?? compiledPdfUrl ?? null;
   const documentId = displayPdf ?? "resume-draft";
 
   useEffect(() => {
     setStudioApplyResult(null);
   }, [compiledPdfUrl]);
 
-  const isAdminAnnotator =
-    (annotation?.role ?? "").toLowerCase() === "admin";
+  const isAdminAnnotator = (annotation?.role ?? "").toLowerCase() === "admin";
 
   const loadStudioThreads = useCallback(async () => {
     try {
@@ -1454,7 +1513,10 @@ export function ComparisonView({
   const studioAuthorOptions = useMemo<StudioAuthorFilterOption[]>(() => {
     const uniq = new Map<string, StudioAuthorFilterOption>();
     for (const thread of studioThreads) {
-      const label = thread.root.type === "ai" ? "AI Revamp" : thread.root.authorLabel || "Note";
+      const label =
+        thread.root.type === "ai"
+          ? "AI Revamp"
+          : thread.root.authorLabel || "Note";
       const key =
         thread.root.type === "ai"
           ? "ai"
@@ -1546,7 +1608,9 @@ export function ComparisonView({
 
   const applyMakeChangesFromStudio = useCallback(async () => {
     if (!authToken?.trim()) {
-      setStudioApplyError("Sign in with a valid access token to apply changes.");
+      setStudioApplyError(
+        "Sign in with a valid access token to apply changes.",
+      );
       return;
     }
     if (!annotation?.onboardingId) {
@@ -1586,14 +1650,17 @@ export function ComparisonView({
       setStudioApplyResult(next);
       onRevampResultApplied?.(next);
 
-      const saveRes = await fetch(withApiBase("/api/onboarding/save-revamp-result"), {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${authToken.trim()}`,
-          "Content-Type": "application/json",
+      const saveRes = await fetch(
+        withApiBase("/api/onboarding/save-revamp-result"),
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${authToken.trim()}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ revampResult: next }),
         },
-        body: JSON.stringify({ revampResult: next }),
-      });
+      );
       const saveData = await saveRes.json();
       if (!saveRes.ok || !saveData.success) {
         setStudioApplyError(
@@ -1607,7 +1674,9 @@ export function ComparisonView({
       await loadStudioThreads();
     } catch (e: unknown) {
       setStudioApplyError(
-        e instanceof Error ? e.message : "Network error while applying changes.",
+        e instanceof Error
+          ? e.message
+          : "Network error while applying changes.",
       );
     } finally {
       setStudioApplyBusy(false);
@@ -1622,53 +1691,65 @@ export function ComparisonView({
     loadStudioThreads,
   ]);
 
-  const regenerateStudioChangesFromContext = useCallback(async (prompt?: string) => {
-    if (!authToken?.trim()) {
-      setStudioApplyError("Sign in with a valid access token to regenerate changes.");
-      return;
-    }
-    if (!annotation?.onboardingId) {
-      setStudioApplyError("Missing onboarding context.");
-      return;
-    }
-    setStudioRegenerateBusy(true);
-    setStudioApplyError(null);
-    try {
-      const res = await fetch(withApiBase("/api/onboarding/regenerate-changes"), {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${authToken.trim()}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          onboardingId: annotation.onboardingId,
-          prompt: prompt ?? "",
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data?.success || !data?.revampResult) {
+  const regenerateStudioChangesFromContext = useCallback(
+    async (prompt?: string) => {
+      if (!authToken?.trim()) {
         setStudioApplyError(
-          typeof data?.message === "string"
-            ? data.message
-            : "Could not regenerate change cards.",
+          "Sign in with a valid access token to regenerate changes.",
         );
         return;
       }
-      const next = data.revampResult as RevampResult;
-      setStudioApplyResult(next);
-      onRevampResultApplied?.(next);
-    } catch (e: unknown) {
-      setStudioApplyError(
-        e instanceof Error ? e.message : "Network error while regenerating changes.",
-      );
-    } finally {
-      setStudioRegenerateBusy(false);
-    }
-  }, [authToken, annotation?.onboardingId, onRevampResultApplied]);
+      if (!annotation?.onboardingId) {
+        setStudioApplyError("Missing onboarding context.");
+        return;
+      }
+      setStudioRegenerateBusy(true);
+      setStudioApplyError(null);
+      try {
+        const res = await fetch(
+          withApiBase("/api/onboarding/regenerate-changes"),
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${authToken.trim()}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              onboardingId: annotation.onboardingId,
+              prompt: prompt ?? "",
+            }),
+          },
+        );
+        const data = await res.json();
+        if (!res.ok || !data?.success || !data?.revampResult) {
+          setStudioApplyError(
+            typeof data?.message === "string"
+              ? data.message
+              : "Could not regenerate change cards.",
+          );
+          return;
+        }
+        const next = data.revampResult as RevampResult;
+        setStudioApplyResult(next);
+        onRevampResultApplied?.(next);
+      } catch (e: unknown) {
+        setStudioApplyError(
+          e instanceof Error
+            ? e.message
+            : "Network error while regenerating changes.",
+        );
+      } finally {
+        setStudioRegenerateBusy(false);
+      }
+    },
+    [authToken, annotation?.onboardingId, onRevampResultApplied],
+  );
 
   const regenerateStudioPdf = useCallback(async () => {
     if (!authToken?.trim()) {
-      setStudioApplyError("Sign in with a valid access token to regenerate PDF.");
+      setStudioApplyError(
+        "Sign in with a valid access token to regenerate PDF.",
+      );
       return;
     }
     if (!annotation?.onboardingId) {
@@ -1700,13 +1781,15 @@ export function ComparisonView({
           revampedResume: prev?.revampedResume ?? displayRevamped,
           changes: Array.isArray(data?.changes)
             ? data.changes
-            : prev?.changes ?? displayChanges,
+            : (prev?.changes ?? displayChanges),
           compiledPdfUrl: data.compiledPdfUrl,
         }));
       }
     } catch (e: unknown) {
       setStudioApplyError(
-        e instanceof Error ? e.message : "Network error while regenerating PDF.",
+        e instanceof Error
+          ? e.message
+          : "Network error while regenerating PDF.",
       );
     } finally {
       setStudioPdfRegenerateBusy(false);
@@ -1733,20 +1816,25 @@ export function ComparisonView({
         compiledPdfUrl: prev?.compiledPdfUrl ?? displayPdf,
       }));
       if (!authToken?.trim() || !annotation?.onboardingId) {
-        setStudioApplyError("Missing auth/onboarding context for saving changes.");
+        setStudioApplyError(
+          "Missing auth/onboarding context for saving changes.",
+        );
         return;
       }
-      const res = await fetch(withApiBase("/api/onboarding/update-resume-changes"), {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${authToken.trim()}`,
-          "Content-Type": "application/json",
+      const res = await fetch(
+        withApiBase("/api/onboarding/update-resume-changes"),
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${authToken.trim()}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            onboardingId: annotation.onboardingId,
+            changes: nextChanges,
+          }),
         },
-        body: JSON.stringify({
-          onboardingId: annotation.onboardingId,
-          changes: nextChanges,
-        }),
-      });
+      );
       const data = await res.json();
       if (!res.ok || !data?.success) {
         throw new Error(
@@ -1756,7 +1844,13 @@ export function ComparisonView({
         );
       }
     },
-    [annotation?.onboardingId, authToken, displayChanges, displayPdf, displayRevamped],
+    [
+      annotation?.onboardingId,
+      authToken,
+      displayChanges,
+      displayPdf,
+      displayRevamped,
+    ],
   );
 
   function renderStudioThreadCard(
@@ -1772,7 +1866,7 @@ export function ComparisonView({
         className={cn(
           "w-full rounded-2xl border bg-white/[0.04] p-4 transition-all",
           resolvedLook && "opacity-90",
-          (focusStudioHighlightId === thread.highlightId || replyOpen)
+          focusStudioHighlightId === thread.highlightId || replyOpen
             ? "border-cyan-400/35 ring-1 ring-cyan-400/20 shadow-[0_0_24px_rgba(34,211,238,0.08)]"
             : "border-white/10 hover:bg-white/[0.07] hover:border-white/20",
         )}
@@ -1802,7 +1896,9 @@ export function ComparisonView({
             "{thread.selectedText}"
           </p>
         )}
-        <p className="text-sm text-white/85 leading-relaxed">{thread.root.text}</p>
+        <p className="text-sm text-white/85 leading-relaxed">
+          {thread.root.text}
+        </p>
         {thread.replies.length > 0 && (
           <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
             {thread.replies.map((r) => (
@@ -1820,7 +1916,9 @@ export function ComparisonView({
                       {new Date(r.createdAt).toLocaleString()}
                     </span>
                   </div>
-                  <p className="text-xs text-white/80 leading-relaxed">{r.text}</p>
+                  <p className="text-xs text-white/80 leading-relaxed">
+                    {r.text}
+                  </p>
                 </div>
               </div>
             ))}
@@ -1831,7 +1929,9 @@ export function ComparisonView({
           <button
             type="button"
             onClick={() => {
-              setStudioReplyOpenKey((prev) => (prev === cardKey ? null : cardKey));
+              setStudioReplyOpenKey((prev) =>
+                prev === cardKey ? null : cardKey,
+              );
               setStudioReplyDraft("");
             }}
             className={cn(
@@ -2156,7 +2256,8 @@ export function ComparisonView({
                         <details className="group rounded-2xl border border-white/10 bg-white/[0.02] overflow-hidden">
                           <summary className="cursor-pointer list-none px-4 py-3 flex items-center justify-between gap-2 text-sm font-semibold text-white/70 hover:bg-white/[0.04] [&::-webkit-details-marker]:hidden">
                             <span>
-                              Resolved feedback ({filteredResolvedStudioThreads.length})
+                              Resolved feedback (
+                              {filteredResolvedStudioThreads.length})
                             </span>
                             <ChevronDown className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" />
                           </summary>
