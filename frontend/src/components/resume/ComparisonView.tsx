@@ -1980,14 +1980,14 @@ export function ComparisonView({
     .toString()
     .replace(/\/$/, "");
   const resumeCompilerOnboardingToken =
-    import.meta.env.VITE_RESUME_COMPILER_ONBOARDING_TOKEN?.toString().trim() ||
-    "tkn_8fK29xLmQ7pV3nZdR6cY1uHs";
+    import.meta.env.VITE_RESUME_COMPILER_ONBOARDING_TOKEN?.toString().trim() ?? "";
 
-  const toolsEditUrl = onboardingId
-    ? `${resumeCompilerToolsOrigin}/?onboardinsubmisionid=${encodeURIComponent(
-        onboardingId,
-      )}&token=${encodeURIComponent(resumeCompilerOnboardingToken)}`
-    : undefined;
+  const toolsEditUrl =
+    onboardingId && resumeCompilerOnboardingToken
+      ? `${resumeCompilerToolsOrigin}/?onboardinsubmisionid=${encodeURIComponent(
+          onboardingId,
+        )}&token=${encodeURIComponent(resumeCompilerOnboardingToken)}`
+      : undefined;
 
   function renderStudioThreadCard(
     thread: StudioThreadItem,
