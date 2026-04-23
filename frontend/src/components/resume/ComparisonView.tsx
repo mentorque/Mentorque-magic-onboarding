@@ -954,7 +954,7 @@ function CompanyFitCard({
               <div className="flex items-center gap-2 text-white/60">
                 <Info className="w-3.5 h-3.5" />
                 <p className="text-[10px] font-medium italic">
-                  Click a logo to see success story
+                  Click a logo to see success story. This is for your reference to understand the writing and formatting style that usually gets recruiter attention and passes ATS.
                 </p>
               </div>
             </motion.div>
