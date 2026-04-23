@@ -76,6 +76,8 @@ export const onboardingSubmissionsTable = pgTable("onboarding_submissions", {
   resumeChanges: json("resume_changes"),
   /** Latest compiled PDF URL for the revamped resume. */
   compiledPdfUrl: text("compiled_pdf_url"),
+  /** Admin-curated action items for Resume Studio (optionally sent to user). */
+  actionItems: json("action_items"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });

@@ -13,6 +13,8 @@ import {
 import { parseResumeText } from "../lib/resumeParser.js";
 import { generateQuestionsFromResume } from "../lib/resumeRevampAI.js";
 import { regenerateStudioChanges } from "../lib/studioRegenerateChangesAI.js";
+import { generateActionItemsFromUnresolvedComments } from "../lib/onboardingActionItemsAI.js";
+import { highlightsTable } from "@workspace/db";
 
 const router = Router();
 const ADMIN_ACCESS_TOKEN =
@@ -35,6 +37,64 @@ function normalizeInputStatus(
 }
 
 type ReviewerRole = "user" | "admin" | "mentor";
+
+type ActionSectionKey =
+  | "personal"
+  | "skills"
+  | "experience"
+  | "projects"
+  | "education";
+
+type ActionItemRow = { id: string; text: string; resolved: boolean };
+
+function normalizeActionItems(raw: unknown): {
+  sections: Record<ActionSectionKey, ActionItemRow[]>;
+  sentToUser: boolean;
+  sentAt: string | null;
+} {
+  const source =
+    raw && typeof raw === "object" && (raw as any).sections && typeof (raw as any).sections === "object"
+      ? (raw as any).sections
+      : raw && typeof raw === "object"
+      ? (raw as any)
+      : {};
+  const sections: Record<ActionSectionKey, ActionItemRow[]> = {
+    personal: [],
+    skills: [],
+    experience: [],
+    projects: [],
+    education: [],
+  };
+  (Object.keys(sections) as ActionSectionKey[]).forEach((section) => {
+    const list = Array.isArray(source?.[section]) ? source[section] : [];
+    sections[section] = list
+      .map((item: any, idx: number) => {
+        if (typeof item === "string") {
+          const text = item.trim();
+          if (!text) return null;
+          return { id: `${section}-${Date.now()}-${idx}`, text, resolved: false };
+        }
+        if (!item || typeof item !== "object") return null;
+        const text = typeof item.text === "string" ? item.text.trim() : "";
+        if (!text) return null;
+        return {
+          id:
+            typeof item.id === "string" && item.id.trim()
+              ? item.id.trim()
+              : `${section}-${Date.now()}-${idx}`,
+          text,
+          resolved: Boolean(item.resolved),
+        };
+      })
+      .filter(Boolean) as ActionItemRow[];
+  });
+  const sentToUser = Boolean((raw as any)?.sentToUser);
+  const sentAt =
+    typeof (raw as any)?.sentAt === "string" && (raw as any).sentAt.trim()
+      ? (raw as any).sentAt.trim()
+      : null;
+  return { sections, sentToUser, sentAt };
+}
 
 function randomToken(prefix: string): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 12)}${Math.random()
@@ -953,6 +1013,171 @@ router.get("/revamp-space-data", authenticateFirebaseOrMentorAccess, async (req:
     return res.status(500).json({ success: false, message: err.message });
   }
 });
+
+/** Revamp Studio: fetch action items (admin sees all, user sees only if sent). */
+router.get(
+  "/action-items",
+  authenticateFirebaseOrMentorAccess,
+  async (req: Request, res: Response) => {
+    try {
+      let onboardingId = "";
+      let isAdmin = false;
+      let userId: string | null = null;
+
+      if (req.authMode === "mentor" && req.mentorAccess) {
+        onboardingId = req.mentorAccess.payload.onboardingId;
+        isAdmin = String(req.mentorAccess.payload.role ?? "").toLowerCase() === "admin";
+      } else if (req.authMode === "firebase" && req.user) {
+        userId = (req.user as { id: string }).id;
+      } else {
+        return res.status(403).json({ success: false, message: "Unauthorized." });
+      }
+
+      if (!onboardingId && userId) {
+        const [latest] = await db
+          .select()
+          .from(onboardingSubmissionsTable)
+          .where(eq(onboardingSubmissionsTable.userId, userId))
+          .orderBy(desc(onboardingSubmissionsTable.updatedAt))
+          .limit(1);
+        if (!latest) return res.json({ success: true, actionItems: null });
+        onboardingId = latest.id;
+      }
+
+      const [submission] = await db
+        .select()
+        .from(onboardingSubmissionsTable)
+        .where(eq(onboardingSubmissionsTable.id, onboardingId));
+      if (!submission) {
+        return res.status(404).json({ success: false, message: "Submission not found." });
+      }
+
+      const normalized = normalizeActionItems(submission.actionItems);
+      if (!isAdmin && !normalized.sentToUser) {
+        return res.json({
+          success: true,
+          onboardingId: submission.id,
+          actionItems: null,
+        });
+      }
+      return res.json({
+        success: true,
+        onboardingId: submission.id,
+        actionItems: normalized,
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  },
+);
+
+/** Revamp Studio (admin): generate sectioned action items from unresolved comments only. */
+router.post(
+  "/action-items/generate",
+  authenticateFirebaseOrMentorAccess,
+  async (req: Request, res: Response) => {
+    try {
+      if (req.authMode !== "mentor" || !req.mentorAccess) {
+        return res.status(403).json({ success: false, message: "Mentor access required." });
+      }
+      const role = String(req.mentorAccess.payload.role ?? "").toLowerCase();
+      if (role !== "admin") {
+        return res.status(403).json({ success: false, message: "Admin reviewer role required." });
+      }
+      const onboardingId = req.mentorAccess.payload.onboardingId;
+      const rows = await db
+        .select({
+          id: highlightsTable.id,
+          content: highlightsTable.content,
+          comments: highlightsTable.comments,
+        })
+        .from(highlightsTable)
+        .where(
+          and(
+            eq(highlightsTable.onboardingId, onboardingId),
+            eq(highlightsTable.isResolved, false),
+          ),
+        );
+      const unresolvedComments: string[] = [];
+      for (const row of rows) {
+        const selected =
+          row.content && typeof row.content === "object" && typeof (row.content as any).text === "string"
+            ? String((row.content as any).text).trim()
+            : "";
+        const comments = Array.isArray(row.comments) ? row.comments : [];
+        comments.forEach((c: any) => {
+          const t = typeof c?.text === "string" ? c.text.trim() : "";
+          if (!t) return;
+          unresolvedComments.push(selected ? `Selected: ${selected}\nComment: ${t}` : t);
+        });
+      }
+      if (!unresolvedComments.length) {
+        return res.status(400).json({
+          success: false,
+          message: "No unresolved comments found to generate action items.",
+        });
+      }
+      const generated = await generateActionItemsFromUnresolvedComments({
+        unresolvedComments,
+        existingActionItems: req.body?.existingActionItems ?? null,
+      });
+      return res.json({
+        success: true,
+        actionItems: { sections: generated, sentToUser: false, sentAt: null },
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  },
+);
+
+/** Revamp Studio (admin): save action items + send-to-user flag. */
+router.put(
+  "/action-items",
+  authenticateFirebaseOrMentorAccess,
+  async (req: Request, res: Response) => {
+    try {
+      if (req.authMode !== "mentor" || !req.mentorAccess) {
+        return res.status(403).json({ success: false, message: "Mentor access required." });
+      }
+      const role = String(req.mentorAccess.payload.role ?? "").toLowerCase();
+      if (role !== "admin") {
+        return res.status(403).json({ success: false, message: "Admin reviewer role required." });
+      }
+      const onboardingId = req.mentorAccess.payload.onboardingId;
+      const incoming = req.body?.actionItems;
+      if (!incoming || typeof incoming !== "object") {
+        return res.status(400).json({ success: false, message: "actionItems object is required." });
+      }
+      const [existing] = await db
+        .select({ actionItems: onboardingSubmissionsTable.actionItems })
+        .from(onboardingSubmissionsTable)
+        .where(eq(onboardingSubmissionsTable.id, onboardingId));
+      if (!existing) {
+        return res.status(404).json({ success: false, message: "Submission not found." });
+      }
+      const prev = normalizeActionItems(existing.actionItems);
+      const normalized = normalizeActionItems(incoming);
+      const nextSent = Boolean(req.body?.sentToUser ?? normalized.sentToUser);
+      const payload = {
+        sections: normalized.sections,
+        sentToUser: nextSent,
+        sentAt: nextSent ? prev.sentAt ?? new Date().toISOString() : null,
+      };
+      const [updated] = await db
+        .update(onboardingSubmissionsTable)
+        .set({ actionItems: payload as any, updatedAt: new Date() } as any)
+        .where(eq(onboardingSubmissionsTable.id, onboardingId))
+        .returning();
+      return res.json({
+        success: true,
+        actionItems: normalizeActionItems(updated?.actionItems),
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  },
+);
 
 router.get("/submissions/:id", async (req: Request, res: Response) => {
   const id = req.params.id as string;
