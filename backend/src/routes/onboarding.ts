@@ -13,7 +13,7 @@ import {
 import { parseResumeText } from "../lib/resumeParser.js";
 import { generateQuestionsFromResume } from "../lib/resumeRevampAI.js";
 import { regenerateStudioChanges } from "../lib/studioRegenerateChangesAI.js";
-import { generateActionItemsFromUnresolvedComments } from "../lib/onboardingActionItemsAI.js";
+// import { generateActionItemsFromUnresolvedComments } from "../lib/onboardingActionItemsAI.js";
 import { highlightsTable } from "@workspace/db";
 
 const router = Router();
