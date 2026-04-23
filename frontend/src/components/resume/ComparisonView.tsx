@@ -271,12 +271,12 @@ function CategoryBadge({ category }: { category?: ChangeCategory }) {
 
 // Hardcoded company data for the Company Fit card
 // Inline SVG components for real brand logos
-function DeltaLogo({ className, style }: { className?: string; style?: React.CSSProperties }) {
+function GoogleLogo({ className, style }: { className?: string; style?: React.CSSProperties }) {
   return (
     <img
-      src="https://media.licdn.com/dms/image/v2/C560BAQG24v1Mn2vUHA/company-logo_200_200/company-logo_200_200/0/1673854584495?e=1778716800&v=beta&t=eEncZXsP23S8RRhc_AzyvXnaf8YPuFMZKt1ksF_Zk5A"
-      alt="Delta India Logo"
-      className={cn(className, "object-contain rounded-md")}
+      src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Google_Favicon_2025.svg/250px-Google_Favicon_2025.svg.png"
+      alt="Google Logo"
+      className={cn(className, "object-contain")}
       style={style}
     />
   );
@@ -287,58 +287,65 @@ function AIBLogo({ className, style }: { className?: string; style?: React.CSSPr
     <img
       src="https://upload.wikimedia.org/wikipedia/en/thumb/4/4b/Allied_Irish_Banks_logo.svg/1280px-Allied_Irish_Banks_logo.svg.png"
       alt="Allied Irish Banks Logo"
-      className={cn(className, "object-contain rounded-md")}
+      className={cn(className, "object-contain")}
       style={style}
     />
   );
 }
 
-function TallyLogo({ className, style }: { className?: string; style?: React.CSSProperties }) {
+function JPMCLogo({ className, style }: { className?: string; style?: React.CSSProperties }) {
+  return (
+    <div className={cn("bg-white rounded-lg flex items-center justify-center overflow-hidden p-1.5", className)} style={style}>
+      <img
+        src="https://media.designrush.com/inspiration_images/757008/conversions/JPMorgan-Chase-Logo-SVG-mobile.jpg"
+        alt="JPMorgan Chase Logo"
+        className="w-full h-full object-contain"
+      />
+    </div>
+  );
+}
+
+function AmazonLogo({ className, style }: { className?: string; style?: React.CSSProperties }) {
   return (
     <img
-      src="https://resources.tallysolutions.com/wp-content/themes/tally/assets/images/tally-logo-black.svg"
-      alt="Tally Logo"
-      className={cn(className, "object-contain brightness-0 invert")}
+      src="https://upload.wikimedia.org/wikipedia/commons/4/4a/Amazon_icon.svg"
+      alt="Amazon Logo"
+      className={cn(className, "object-contain")}
       style={style}
     />
   );
 }
 
-function MerckLogo({ className, style }: { className?: string; style?: React.CSSProperties }) {
+function VodafoneLogo({ className, style }: { className?: string; style?: React.CSSProperties }) {
   return (
     <img
-      src="/logos/Mkgaa768x432.jpg"
-      alt="Merck Logo"
-      className={cn(className, "object-contain rounded-md")}
+      src="https://cdn.worldvectorlogo.com/logos/vodafone-icon.svg"
+      alt="Vodafone Logo"
+      className={cn(className, "object-contain")}
       style={style}
     />
   );
 }
 
-function AramyaLogo({ className, style }: { className?: string; style?: React.CSSProperties }) {
+function OptumLogo({ className, style }: { className?: string; style?: React.CSSProperties }) {
   return (
-    <svg className={className} style={style} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="100" height="100" rx="20" fill="currentColor" fillOpacity="0.1"/>
-      <text x="50%" y="54%" dominantBaseline="middle" textAnchor="middle" fontSize="48" fontWeight="bold" fill="currentColor">A</text>
-    </svg>
+    <img
+      src="https://growlivewin.com/wp-content/uploads/2023/11/image.png"
+      alt="Optum Logo"
+      className={cn(className, "object-contain")}
+      style={style}
+    />
   );
 }
 
-function DPALogo({ className, style }: { className?: string; style?: React.CSSProperties }) {
+function EbayLogo({ className, style }: { className?: string; style?: React.CSSProperties }) {
   return (
-    <svg className={className} style={style} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="100" height="100" rx="20" fill="currentColor" fillOpacity="0.1"/>
-      <text x="50%" y="54%" dominantBaseline="middle" textAnchor="middle" fontSize="40" fontWeight="bold" fill="currentColor">DP</text>
-    </svg>
-  );
-}
-
-function KushalsLogo({ className, style }: { className?: string; style?: React.CSSProperties }) {
-  return (
-    <svg className={className} style={style} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="100" height="100" rx="20" fill="currentColor" fillOpacity="0.1"/>
-      <text x="50%" y="54%" dominantBaseline="middle" textAnchor="middle" fontSize="40" fontWeight="bold" fill="currentColor">KR</text>
-    </svg>
+    <img
+      src="https://upload.wikimedia.org/wikipedia/commons/4/48/EBay_logo.png"
+      alt="eBay Logo"
+      className={cn(className, "object-contain")}
+      style={style}
+    />
   );
 }
 
@@ -359,12 +366,12 @@ type CompanyIcon = React.ComponentType<{ className?: string; style?: React.CSSPr
 const COMPANIES: Array<{ name: string; icon: CompanyIcon; color: string }> = [
   { name: "Microsoft", icon: MicrosoftLogo, color: "#00A4EF" },
   { name: "AIB", icon: AIBLogo, color: "#7F4194" },
-  { name: "Tally", icon: TallyLogo, color: "#CCCCCC" },
-  { name: "Delta", icon: DeltaLogo, color: "#145c34" },
-  { name: "Merck", icon: MerckLogo, color: "#635BFF" },
-  { name: "Aramya", icon: AramyaLogo, color: "#10B981" },
-  { name: "DPA", icon: DPALogo, color: "#3B82F6" },
-  { name: "Kushals", icon: KushalsLogo, color: "#F59E0B" },
+  { name: "JPMC", icon: JPMCLogo, color: "#0A4593" },
+  { name: "Google", icon: GoogleLogo, color: "#4285F4" },
+  { name: "Amazon", icon: AmazonLogo, color: "#FF9900" },
+  { name: "Vodafone", icon: VodafoneLogo, color: "#E60000" },
+  { name: "Optum", icon: OptumLogo, color: "#FF6600" },
+  { name: "eBay", icon: EbayLogo, color: "#E53238" },
 ];
 
 
@@ -857,58 +864,50 @@ function KeyChangesCard({
 
 // ─── Card 3: Company Fit ─────────────────────────────────────────────────────────
 // Random success stories tied to companies
-const SUCCESS_STORIES: Record<string, { message: string; role: string }> = {
-  Aramya: {
+const SUCCESS_STORIES: Record<string, { message: string }> = {
+  Vodafone: {
     message:
-      "One of our similar revamps led to a selection for a Software Development Engineer role at Aramya",
-    role: "→ SDE, Remote",
+      "Similar revamps helped candidates get shortlists from Vodafone, Optum, and eBay.",
   },
-  Tally: {
+  JPMC: {
     message:
-      "One of our similar revamps led to a selection for an SDE Intern role at Tally Solutions",
-    role: "→ SDE Intern, Bengaluru, KA",
+      "Similar revamps helped candidates get shortlists from JPMorgan Chase, AIB, and Microsoft.",
   },
-  Merck: {
+  Amazon: {
     message:
-      "One of our similar revamps led to a selection for an Analyst role at Merck KGaA",
-    role: "→ Analyst, Bengaluru, India",
+      "Similar revamps helped candidates get shortlists from Amazon, Google, and Microsoft.",
   },
   AIB: {
     message:
-      "One of our similar revamps led to a selection for a Software Developer role at AIB (Allied Irish Bank)",
-    role: "→ SDE, Ireland",
+      "Similar revamps helped candidates get shortlists from AIB, JPMorgan Chase, and Optum.",
   },
-  DPA: {
+  Optum: {
     message:
-      "One of our similar revamps led to a selection for a Business Development Representative role at Dilip Patil and Associates",
-    role: "→ Business Development Representative, India",
+      "Similar revamps helped candidates get shortlists from Optum, Vodafone, and Amazon.",
   },
-  Kushals: {
+  eBay: {
     message:
-      "One of our similar revamps led to a selection for a Software Developer role at Kushal's Retail Pvt Ltd",
-    role: "→ Software Developer, Bengaluru",
+      "Similar revamps helped candidates get shortlists from eBay, Google, and Vodafone.",
   },
   Microsoft: {
     message:
-      "One of our similar revamps led to a selection for a Software Developer role at Microsoft",
-    role: "→ Software Developer, Dublin, Ireland",
+      "Similar revamps helped candidates get shortlists from Microsoft, Amazon, and AIB.",
   },
-  Delta: {
+  Google: {
     message:
-      "One of our similar revamps led to a selection for a Data Analyst role at Delta India",
-    role: "→ Data Analyst, Pune, India",
+      "Similar revamps helped candidates get shortlists from Google, Microsoft, and JPMorgan Chase.",
   },
 };
 
 const SAMPLE_RESUME_PDFS: Record<string, string> = {
-  Aramya: "/sample-resume/shikhar-resume_redacted.pdf",
-  Tally: "/sample-resume/Snehashish_Resume_Redacted.pdf",
-  Merck: "/sample-resume/vijayKumar_redacted.pdf",
+  Vodafone: "/sample-resume/shikhar-resume_redacted.pdf",
+  JPMC: "/sample-resume/Snehashish_Resume_Redacted.pdf",
+  Amazon: "/sample-resume/vijayKumar_redacted.pdf",
   AIB: "/sample-resume/Reshu_Agarwal_redacted.pdf",
-  DPA: "/sample-resume/Komal%20Joshi%20redacted.pdf",
-  Kushals: "/sample-resume/Pramod%20redacted.pdf",
+  Optum: "/sample-resume/Komal%20Joshi%20redacted.pdf",
+  eBay: "/sample-resume/Pramod%20redacted.pdf",
   Microsoft: "/sample-resume/Agniva_Microsoft.pdf",
-  Delta: "/sample-resume/Prasad%20Katore%20redacted.pdf",
+  Google: "/sample-resume/Prasad%20Katore%20redacted.pdf",
 };
 
 function CompanyFitCard({
@@ -936,27 +935,17 @@ function CompanyFitCard({
               exit={{ opacity: 0, scale: 0.95 }}
               className="flex flex-col gap-4"
             >
-              <div className="grid grid-cols-4 sm:grid-cols-8 gap-4">
+              <div className="grid grid-cols-4 sm:grid-cols-8 gap-y-8 gap-x-4 sm:gap-x-6 items-start py-4">
                 {COMPANIES.map((c) => (
                   <button
                     key={c.name}
                     onClick={() => setSelectedCompany(c.name)}
-                    className="group/logo relative flex flex-col items-center gap-2"
+                    className="group/logo relative flex flex-col items-center gap-3 transition-all duration-300 hover:scale-110"
                   >
-                    <div
-                      className="w-12 h-12 flex items-center justify-center rounded-2xl border transition-all duration-300 group-hover/logo:scale-110 group-hover/logo:border-white/20"
-                      style={{
-                        color: c.color,
-                        backgroundColor: `${c.color}18`,
-                        borderColor: `${c.color}40`,
-                      }}
-                    >
-                      <c.icon
-                        className="w-6 h-6 transition-all duration-300 group-hover/logo:drop-shadow-lg"
-                        style={{ filter: `drop-shadow(0 0 6px ${c.color}66)` }}
-                      />
-                    </div>
-                    <span className="text-[9px] font-bold text-white/70 group-hover/logo:text-white transition-colors uppercase tracking-widest">
+                    <c.icon
+                      className="w-8 h-8 sm:w-12 sm:h-12 object-contain"
+                    />
+                    <span className="text-[9px] font-black text-white/40 group-hover/logo:text-white/90 transition-colors uppercase tracking-[0.15em] text-center">
                       {c.name}
                     </span>
                   </button>
@@ -1013,12 +1002,6 @@ function CompanyFitCard({
                     <p className="text-white/80 text-sm leading-relaxed font-medium">
                       {story.message}
                     </p>
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-px bg-primary/40" />
-                      <p className="text-primary/90 text-[10px] font-black uppercase tracking-widest">
-                        {story.role}
-                      </p>
-                    </div>
                   </motion.div>
                 )}
               </div>
