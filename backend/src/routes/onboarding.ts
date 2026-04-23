@@ -38,62 +38,53 @@ function normalizeInputStatus(
 
 type ReviewerRole = "user" | "admin" | "mentor";
 
-type ActionSectionKey =
-  | "personal"
-  | "skills"
-  | "experience"
-  | "projects"
-  | "education";
-
 type ActionItemRow = { id: string; text: string; resolved: boolean };
 
 function normalizeActionItems(raw: unknown): {
-  sections: Record<ActionSectionKey, ActionItemRow[]>;
+  items: ActionItemRow[];
   sentToUser: boolean;
   sentAt: string | null;
 } {
-  const source =
-    raw && typeof raw === "object" && (raw as any).sections && typeof (raw as any).sections === "object"
-      ? (raw as any).sections
-      : raw && typeof raw === "object"
-      ? (raw as any)
-      : {};
-  const sections: Record<ActionSectionKey, ActionItemRow[]> = {
-    personal: [],
-    skills: [],
-    experience: [],
-    projects: [],
-    education: [],
-  };
-  (Object.keys(sections) as ActionSectionKey[]).forEach((section) => {
-    const list = Array.isArray(source?.[section]) ? source[section] : [];
-    sections[section] = list
-      .map((item: any, idx: number) => {
-        if (typeof item === "string") {
-          const text = item.trim();
-          if (!text) return null;
-          return { id: `${section}-${Date.now()}-${idx}`, text, resolved: false };
-        }
-        if (!item || typeof item !== "object") return null;
-        const text = typeof item.text === "string" ? item.text.trim() : "";
+  const source = raw && typeof raw === "object" ? (raw as any) : {};
+  const flatItems: any[] = Array.isArray(source?.items) ? source.items : [];
+  const legacySections =
+    source?.sections && typeof source.sections === "object"
+      ? source.sections
+      : null;
+  const fromLegacySections: any[] = legacySections
+    ? Object.values(legacySections).flatMap((list: any) =>
+        Array.isArray(list) ? list : [],
+      )
+    : [];
+  const inputItems = flatItems.length > 0 ? flatItems : fromLegacySections;
+
+  const items = inputItems
+    .map((item: any, idx: number) => {
+      if (typeof item === "string") {
+        const text = item.trim();
         if (!text) return null;
-        return {
-          id:
-            typeof item.id === "string" && item.id.trim()
-              ? item.id.trim()
-              : `${section}-${Date.now()}-${idx}`,
-          text,
-          resolved: Boolean(item.resolved),
-        };
-      })
-      .filter(Boolean) as ActionItemRow[];
-  });
+        return { id: `action-${Date.now()}-${idx}`, text, resolved: false };
+      }
+      if (!item || typeof item !== "object") return null;
+      const text = typeof item.text === "string" ? item.text.trim() : "";
+      if (!text) return null;
+      return {
+        id:
+          typeof item.id === "string" && item.id.trim()
+            ? item.id.trim()
+            : `action-${Date.now()}-${idx}`,
+        text,
+        resolved: Boolean(item.resolved),
+      };
+    })
+    .filter(Boolean) as ActionItemRow[];
+
   const sentToUser = Boolean((raw as any)?.sentToUser);
   const sentAt =
     typeof (raw as any)?.sentAt === "string" && (raw as any).sentAt.trim()
       ? (raw as any).sentAt.trim()
       : null;
-  return { sections, sentToUser, sentAt };
+  return { items, sentToUser, sentAt };
 }
 
 function randomToken(prefix: string): string {
@@ -1121,9 +1112,10 @@ router.post(
         unresolvedComments,
         existingActionItems: req.body?.existingActionItems ?? null,
       });
+      const normalizedGenerated = normalizeActionItems({ sections: generated });
       return res.json({
         success: true,
-        actionItems: { sections: generated, sentToUser: false, sentAt: null },
+        actionItems: { items: normalizedGenerated.items, sentToUser: false, sentAt: null },
       });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });
@@ -1160,7 +1152,7 @@ router.put(
       const normalized = normalizeActionItems(incoming);
       const nextSent = Boolean(req.body?.sentToUser ?? normalized.sentToUser);
       const payload = {
-        sections: normalized.sections,
+        items: normalized.items,
         sentToUser: nextSent,
         sentAt: nextSent ? prev.sentAt ?? new Date().toISOString() : null,
       };

@@ -113,44 +113,16 @@ interface StudioAuthorFilterOption {
   shortLabel: string;
 }
 
-type ActionSectionKey =
-  | "personal"
-  | "skills"
-  | "experience"
-  | "projects"
-  | "education";
 type ActionItem = { id: string; text: string; resolved?: boolean };
 type ActionItemsPayload = {
-  sections: Record<ActionSectionKey, ActionItem[]>;
+  items: ActionItem[];
   sentToUser: boolean;
   sentAt: string | null;
 };
 
-const ACTION_SECTIONS: ActionSectionKey[] = [
-  "personal",
-  "skills",
-  "experience",
-  "projects",
-  "education",
-];
-
-const ACTION_SECTION_LABEL: Record<ActionSectionKey, string> = {
-  personal: "Personal",
-  skills: "Skills",
-  experience: "Experience",
-  projects: "Projects",
-  education: "Education",
-};
-
 function emptyActionItems(): ActionItemsPayload {
   return {
-    sections: {
-      personal: [],
-      skills: [],
-      experience: [],
-      projects: [],
-      education: [],
-    },
+    items: [],
     sentToUser: false,
     sentAt: null,
   };
@@ -1610,24 +1582,13 @@ export function ComparisonView({
         setActionItems(emptyActionItems());
         return;
       }
+      const fallbackFromSections = Object.values(
+        data.actionItems?.sections ?? {},
+      ).flatMap((list: any) => (Array.isArray(list) ? list : []));
       setActionItems({
-        sections: {
-          personal: Array.isArray(data.actionItems?.sections?.personal)
-            ? data.actionItems.sections.personal
-            : [],
-          skills: Array.isArray(data.actionItems?.sections?.skills)
-            ? data.actionItems.sections.skills
-            : [],
-          experience: Array.isArray(data.actionItems?.sections?.experience)
-            ? data.actionItems.sections.experience
-            : [],
-          projects: Array.isArray(data.actionItems?.sections?.projects)
-            ? data.actionItems.sections.projects
-            : [],
-          education: Array.isArray(data.actionItems?.sections?.education)
-            ? data.actionItems.sections.education
-            : [],
-        },
+        items: Array.isArray(data.actionItems?.items)
+          ? data.actionItems.items
+          : fallbackFromSections,
         sentToUser: Boolean(data.actionItems?.sentToUser),
         sentAt:
           typeof data.actionItems?.sentAt === "string"
@@ -1933,31 +1894,19 @@ export function ComparisonView({
     ],
   );
 
-  const setActionItemText = (
-    section: ActionSectionKey,
-    itemId: string,
-    text: string,
-  ) => {
+  const setActionItemText = (itemId: string, text: string) => {
     setActionItems((prev) => ({
       ...prev,
-      sections: {
-        ...prev.sections,
-        [section]: prev.sections[section].map((it) =>
-          it.id === itemId ? { ...it, text } : it,
-        ),
-      },
+      items: prev.items.map((it) => (it.id === itemId ? { ...it, text } : it)),
     }));
   };
 
-  const toggleActionResolved = (section: ActionSectionKey, itemId: string) => {
+  const toggleActionResolved = (itemId: string) => {
     setActionItems((prev) => ({
       ...prev,
-      sections: {
-        ...prev.sections,
-        [section]: prev.sections[section].map((it) =>
-          it.id === itemId ? { ...it, resolved: !it.resolved } : it,
-        ),
-      },
+      items: prev.items.map((it) =>
+        it.id === itemId ? { ...it, resolved: !it.resolved } : it,
+      ),
     }));
   };
 
@@ -2005,14 +1954,13 @@ export function ComparisonView({
       );
       const data = await res.json();
       if (!res.ok || !data?.success || !data?.actionItems) return;
+      const fallbackFromSections = Object.values(
+        data.actionItems?.sections ?? {},
+      ).flatMap((list: any) => (Array.isArray(list) ? list : []));
       setActionItems({
-        sections: {
-          personal: data.actionItems.sections?.personal ?? [],
-          skills: data.actionItems.sections?.skills ?? [],
-          experience: data.actionItems.sections?.experience ?? [],
-          projects: data.actionItems.sections?.projects ?? [],
-          education: data.actionItems.sections?.education ?? [],
-        },
+        items: Array.isArray(data.actionItems?.items)
+          ? data.actionItems.items
+          : fallbackFromSections,
         sentToUser: Boolean(data.actionItems.sentToUser),
         sentAt:
           typeof data.actionItems.sentAt === "string"
@@ -2025,8 +1973,20 @@ export function ComparisonView({
     }
   }, [actionItems, authToken, isAdminAnnotator]);
 
+  /** ResumeCompiler tools: same query shape as `Home.tsx` (typo param preserved). */
+  const resumeCompilerToolsOrigin = (
+    import.meta.env.VITE_RESUME_COMPILER_TOOLS_URL ?? "https://tools.mentorquedu.com"
+  )
+    .toString()
+    .replace(/\/$/, "");
+  const resumeCompilerOnboardingToken =
+    import.meta.env.VITE_RESUME_COMPILER_ONBOARDING_TOKEN?.toString().trim() ||
+    "tkn_8fK29xLmQ7pV3nZdR6cY1uHs";
+
   const toolsEditUrl = onboardingId
-    ? `https://tools.mentorque/${encodeURIComponent(onboardingId)}`
+    ? `${resumeCompilerToolsOrigin}/?onboardinsubmisionid=${encodeURIComponent(
+        onboardingId,
+      )}&token=${encodeURIComponent(resumeCompilerOnboardingToken)}`
     : undefined;
 
   function renderStudioThreadCard(
@@ -2311,88 +2271,106 @@ export function ComparisonView({
                 </p>
 
                 {isAdminAnnotator && (
-                  <div className="mb-5 space-y-2">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => void applyMakeChangesFromStudio()}
-                        disabled={
-                          studioApplyBusy ||
-                          activeStudioThreads.length === 0 ||
-                          !authToken?.trim()
-                        }
-                        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-400/35 bg-emerald-500/15 px-4 py-3 text-xs font-black uppercase tracking-[0.2em] text-emerald-100 shadow-[0_0_24px_rgba(16,185,129,0.12)] transition-all hover:bg-emerald-500/25 disabled:pointer-events-none disabled:opacity-40"
-                      >
-                        {studioApplyBusy ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Sparkles className="h-4 w-4" />
-                        )}
-                        Make Changes
-                      </button>
-                      <a
-                        href={toolsEditUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={cn(
-                          "inline-flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-xs font-black uppercase tracking-[0.2em] transition-all",
-                          toolsEditUrl
-                            ? "border-cyan-400/35 bg-cyan-500/15 text-cyan-100 hover:bg-cyan-500/25"
-                            : "border-white/15 bg-white/[0.05] text-white/40 pointer-events-none",
-                        )}
-                      >
-                        <ArrowUpRight className="h-4 w-4" />
-                        Edit Resume
-                      </a>
+                  <div className="mb-5 space-y-3">
+                    <div className="rounded-xl border border-white/10 bg-black/20 p-3 space-y-2">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-white/60">
+                        Primary Actions
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void applyMakeChangesFromStudio()}
+                          disabled={
+                            studioApplyBusy ||
+                            activeStudioThreads.length === 0 ||
+                            !authToken?.trim()
+                          }
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-400/35 bg-emerald-500/15 px-3 py-2.5 text-[11px] font-black uppercase tracking-[0.16em] text-emerald-100 transition-all hover:bg-emerald-500/25 disabled:pointer-events-none disabled:opacity-40"
+                        >
+                          {studioApplyBusy ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Sparkles className="h-4 w-4" />
+                          )}
+                          Make Changes
+                        </button>
+                        <a
+                          href={toolsEditUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={cn(
+                            "inline-flex w-full items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-[11px] font-black uppercase tracking-[0.16em] transition-all",
+                            toolsEditUrl
+                              ? "border-cyan-400/35 bg-cyan-500/15 text-cyan-100 hover:bg-cyan-500/25"
+                              : "border-white/15 bg-white/[0.05] text-white/40 pointer-events-none",
+                          )}
+                        >
+                          <ArrowUpRight className="h-4 w-4" />
+                          Edit Resume
+                        </a>
+                      </div>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+
+                    <div className="rounded-xl border border-white/10 bg-black/20 p-3 space-y-2">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-white/60">
+                        Action Items
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setShowActionItemsPanel((prev) => !prev)
+                          }
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/[0.06] px-3 py-2.5 text-[10px] font-black uppercase tracking-[0.16em] text-white/85 transition-all hover:bg-white/[0.1]"
+                        >
+                          {showActionItemsPanel ? "Hide" : "Show"} Items
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void generateActionItems()}
+                          disabled={actionItemsGenerating || !authToken?.trim()}
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-violet-400/35 bg-violet-500/15 px-3 py-2.5 text-[10px] font-black uppercase tracking-[0.16em] text-violet-100 transition-all hover:bg-violet-500/25 disabled:pointer-events-none disabled:opacity-40"
+                        >
+                          {actionItemsGenerating ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Sparkles className="h-3.5 w-3.5" />
+                          )}
+                          Generate
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void saveActionItems(!actionItems.sentToUser)}
+                          disabled={actionItemsSaving}
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-amber-400/35 bg-amber-500/15 px-3 py-2.5 text-[10px] font-black uppercase tracking-[0.16em] text-amber-100 transition-all hover:bg-amber-500/25 disabled:pointer-events-none disabled:opacity-40"
+                        >
+                          {actionItemsSaving ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : null}
+                          {actionItems.sentToUser ? "Unsend" : "Send"}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-white/60 mb-2">
+                        Publish
+                      </p>
                       <button
                         type="button"
-                        onClick={() => void generateActionItems()}
-                        disabled={actionItemsGenerating || !authToken?.trim()}
-                        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-violet-400/35 bg-violet-500/15 px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.2em] text-violet-100 transition-all hover:bg-violet-500/25 disabled:pointer-events-none disabled:opacity-40"
+                        onClick={() => void regenerateStudioPdf()}
+                        disabled={studioPdfRegenerateBusy || !authToken?.trim()}
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-blue-400/35 bg-blue-500/15 px-3 py-2.5 text-[10px] font-black uppercase tracking-[0.16em] text-blue-100 transition-all hover:bg-blue-500/25 disabled:pointer-events-none disabled:opacity-40"
                       >
-                        {actionItemsGenerating ? (
+                        {studioPdfRegenerateBusy ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
                         ) : (
-                          <Sparkles className="h-3.5 w-3.5" />
+                          <FileText className="h-3.5 w-3.5" />
                         )}
-                        Generate Action Items
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setShowActionItemsPanel((prev) => !prev)
-                        }
-                        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/[0.06] px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.2em] text-white/85 transition-all hover:bg-white/[0.1]"
-                      >
-                        {showActionItemsPanel ? "Hide" : "Show"} Action Items
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void saveActionItems(!actionItems.sentToUser)}
-                        disabled={actionItemsSaving}
-                        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-400/35 bg-amber-500/15 px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.2em] text-amber-100 transition-all hover:bg-amber-500/25 disabled:pointer-events-none disabled:opacity-40"
-                      >
-                        {actionItemsSaving ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : null}
-                        {actionItems.sentToUser ? "Unsend from User" : "Send Note to User"}
+                        Regenerate PDF
                       </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => void regenerateStudioPdf()}
-                      disabled={studioPdfRegenerateBusy || !authToken?.trim()}
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-blue-400/35 bg-blue-500/15 px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.2em] text-blue-100 transition-all hover:bg-blue-500/25 disabled:pointer-events-none disabled:opacity-40"
-                    >
-                      {studioPdfRegenerateBusy ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <FileText className="h-3.5 w-3.5" />
-                      )}
-                      Regenerate PDF
-                    </button>
+
                     {studioApplyError && (
                       <p className="text-xs text-red-300/95 leading-relaxed">
                         {studioApplyError}
@@ -2408,7 +2386,7 @@ export function ComparisonView({
 
                 {(showActionItemsPanel ||
                   (!isAdminAnnotator && actionItems.sentToUser)) && (
-                  <div className="mb-5 rounded-2xl border border-cyan-400/20 bg-cyan-950/20 p-4 space-y-3">
+                  <div className="mb-4 rounded-xl border border-cyan-400/20 bg-cyan-950/20 p-3 space-y-2.5">
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-xs font-black uppercase tracking-widest text-cyan-100/90">
                         Action Items
@@ -2425,56 +2403,50 @@ export function ComparisonView({
                     </div>
                     {actionItemsLoading ? (
                       <p className="text-xs text-white/60">Loading action items…</p>
+                    ) : actionItems.items.length === 0 ? (
+                      <p className="text-xs text-white/35">
+                        No action items yet.
+                      </p>
                     ) : (
-                      ACTION_SECTIONS.map((section) => (
-                        <div
-                          key={section}
-                          className="rounded-xl border border-white/10 bg-black/20 p-3"
-                        >
-                          <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-white/60">
-                            {ACTION_SECTION_LABEL[section]}
-                          </p>
-                          {actionItems.sections[section].length === 0 ? (
-                            <p className="text-xs text-white/35">No items.</p>
-                          ) : (
-                            <div className="space-y-2">
-                              {actionItems.sections[section].map((item) => (
-                                <div key={item.id} className="rounded-lg border border-white/10 bg-white/[0.03] p-2">
-                                  {isAdminAnnotator ? (
-                                    <div className="space-y-2">
-                                      <textarea
-                                        value={item.text}
-                                        onChange={(e) =>
-                                          setActionItemText(
-                                            section,
-                                            item.id,
-                                            e.target.value,
-                                          )
-                                        }
-                                        rows={2}
-                                        className="w-full resize-y rounded-md border border-white/10 bg-black/30 px-2 py-1.5 text-xs text-white/90"
-                                      />
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          toggleActionResolved(section, item.id)
-                                        }
-                                        className="rounded-md border border-white/15 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-white/70 hover:bg-white/[0.08]"
-                                      >
-                                        {item.resolved ? "Resolved" : "Open"}
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <p className="text-sm text-white/85 leading-relaxed">
-                                      {item.text}
-                                    </p>
-                                  )}
+                      <div className="max-h-52 overflow-y-auto pr-1 custom-scrollbar">
+                        <div className="space-y-1.5">
+                          {actionItems.items.map((item) => (
+                            <div
+                              key={item.id}
+                              className="rounded-md border border-white/10 bg-white/[0.03] px-2 py-1.5"
+                            >
+                              {isAdminAnnotator ? (
+                                <div className="space-y-1.5">
+                                  <textarea
+                                    value={item.text}
+                                    onChange={(e) =>
+                                      setActionItemText(item.id, e.target.value)
+                                    }
+                                    rows={1}
+                                    className="w-full resize-y rounded-md border border-white/10 bg-black/30 px-2 py-1.5 text-xs text-white/90 leading-snug min-h-[38px]"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleActionResolved(item.id)}
+                                    className="rounded-md border border-white/15 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-white/70 hover:bg-white/[0.08]"
+                                  >
+                                    {item.resolved ? "Resolved" : "Open"}
+                                  </button>
                                 </div>
-                              ))}
+                              ) : (
+                                <div className="flex items-start gap-2">
+                                  <span className="mt-0.5 rounded-full border border-cyan-300/40 bg-cyan-500/10 p-0.5">
+                                    <Check className="h-3 w-3 text-cyan-200" />
+                                  </span>
+                                  <p className="text-xs text-white/85 leading-snug">
+                                    {item.text}
+                                  </p>
+                                </div>
+                              )}
                             </div>
-                          )}
+                          ))}
                         </div>
-                      ))
+                      </div>
                     )}
                     {isAdminAnnotator && (
                       <button
@@ -2492,8 +2464,7 @@ export function ComparisonView({
                   </div>
                 )}
 
-                {!(!isAdminAnnotator && actionItems.sentToUser) &&
-                  studioAuthorOptions.length > 1 && (
+                {studioAuthorOptions.length > 1 && (
                   <div className="mb-4">
                     <p className="text-[10px] font-black uppercase tracking-widest text-white/45 mb-2">
                       Filter by author
@@ -2524,7 +2495,6 @@ export function ComparisonView({
                   </div>
                 )}
 
-                {!(!isAdminAnnotator && actionItems.sentToUser) && (
                 <div className="space-y-3 max-h-[65vh] overflow-y-auto pr-1 custom-scrollbar">
                   {filteredActiveStudioThreads.length === 0 &&
                   filteredResolvedStudioThreads.length === 0 ? (
@@ -2566,7 +2536,6 @@ export function ComparisonView({
                     </>
                   )}
                 </div>
-                )}
               </div>
             </div>
           )}
