@@ -93,7 +93,77 @@ export function normalizeCommentsForHighlight(
   }));
 }
 
-function normalizeHighlight(raw: any): Highlight {
+export function commentAuthorLabel(c: {
+  type: "ai" | "human";
+  author?: string;
+  role?: string;
+}): string | undefined {
+  if (c.type === "ai") return undefined;
+  return [c.author, c.role].filter(Boolean).join(" · ") || undefined;
+}
+
+/** Stable per-user seed for RoboHash (same seed → same robot). */
+export function stableAvatarSeedForComment(
+  c: HighlightComment,
+  fallback: string,
+  annotation: AnnotationAttribution | null | undefined,
+): string {
+  if (c.type === "ai") return "mentorque-ai";
+  const author = c.author?.trim();
+  const role = c.role?.trim();
+  if (
+    annotation?.reviewerId &&
+    author &&
+    annotation.displayName.trim() === author
+  ) {
+    return annotation.reviewerId;
+  }
+  if (author || role) {
+    return [author, role].filter(Boolean).join("|");
+  }
+  return fallback;
+}
+
+function studioRobohashSrc(seed: string): string {
+  const safe = seed.slice(0, 240);
+  return `https://robohash.org/${encodeURIComponent(safe)}.png?set=set3&bgset=bg2&size=128x128`;
+}
+
+export function StudioRoboAvatar({
+  seed,
+  size = "md",
+  className,
+}: {
+  seed: string;
+  size?: "md" | "sm";
+  className?: string;
+}) {
+  const inner = size === "sm" ? "h-5 w-5" : "h-7 w-7";
+  const scale = size === "sm" ? "scale-[1.1]" : "scale-[1.15]";
+  return (
+    <div
+      className={cn(
+        "shrink-0 self-start rounded-full bg-white p-[1px] shadow-sm ring-1 ring-black/5",
+        className,
+      )}
+    >
+      <div
+        className={cn("relative overflow-hidden rounded-full bg-white", inner)}
+      >
+        <img
+          src={studioRobohashSrc(seed)}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
+          className={cn("h-full w-full object-cover object-center", scale)}
+        />
+      </div>
+    </div>
+  );
+}
+
+export function normalizeHighlight(raw: any): Highlight {
   const id = String(raw?.id ?? "");
   return {
     id,
@@ -112,12 +182,17 @@ export function repliesToParent(
     .filter((c) => c.inReplyToId === parentId)
     .sort(
       (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
     );
 }
 
 export function rootComments(all: HighlightComment[]): HighlightComment[] {
-  return all.filter((c) => !c.inReplyToId);
+  return all
+    .filter((c) => !c.inReplyToId)
+    .sort(
+      (a, b) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    );
 }
 
 export interface Highlight {
@@ -245,17 +320,17 @@ function SelectionPopup({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: -6, scale: 0.97 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -6, scale: 0.97 }}
+      initial={{ opacity: 0, scale: 0.97, y: -4 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.97, y: -4 }}
       transition={{ duration: 0.15 }}
       style={{ position: "absolute", left: x, top: y, zIndex: 50 }}
       className="w-72 rounded-2xl border border-white/15 bg-black/90 backdrop-blur-xl shadow-2xl p-4 text-sm flex flex-col gap-3"
       onMouseDown={(e) => e.stopPropagation()}
     >
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] font-black uppercase tracking-widest text-white/40">
+      <div className="flex items-center justify-between px-0.5">
+        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30">
           {mode === "menu" && "Annotate"}
           {mode === "note" && "Add Note"}
           {mode === "ai-loading" && "Asking AI…"}
@@ -274,7 +349,7 @@ function SelectionPopup({
         <div className="flex gap-2">
           <button
             onClick={onAskAI}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-violet-500/20 border border-violet-500/30 text-violet-300 hover:bg-violet-500/30 transition-all text-xs font-bold uppercase tracking-widest"
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-violet-500/20 border border-violet-500/30 text-violet-300 hover:bg-violet-500/30 transition-all text-[10px] font-black uppercase tracking-widest"
           >
             <Bot className="w-3.5 h-3.5" />
             Ask AI
@@ -283,7 +358,7 @@ function SelectionPopup({
             onClick={() => {
               /* switch mode handled in parent */ onAddNote("__switch__");
             }}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-300 hover:bg-amber-500/30 transition-all text-xs font-bold uppercase tracking-widest"
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-300 hover:bg-amber-500/30 transition-all text-[10px] font-black uppercase tracking-widest"
           >
             <MessageSquare className="w-3.5 h-3.5" />
             Note
@@ -306,14 +381,14 @@ function SelectionPopup({
           <button
             onClick={handleSaveNote}
             disabled={!noteVal.trim() || saving}
-            className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-300 hover:bg-amber-500/30 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-xs font-bold uppercase tracking-widest"
+            className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-300 hover:bg-amber-500/30 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-[10px] font-black uppercase tracking-widest"
           >
             {saving ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
             ) : (
               <Send className="w-3.5 h-3.5" />
             )}
-            {saving ? "Saving…" : "Save Note"}
+            {saving ? "Saving" : "Save Note"}
           </button>
         </div>
       )}
@@ -322,18 +397,18 @@ function SelectionPopup({
       {mode === "ai-loading" && (
         <div className="flex items-center justify-center py-4 gap-3 text-violet-400">
           <Loader2 className="w-4 h-4 animate-spin" />
-          <span className="text-xs text-white/40">Reviewing with AI…</span>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">Reviewing…</span>
         </div>
       )}
 
       {/* AI result */}
       {mode === "ai-done" && (
         <div className="flex flex-col gap-3">
-          <div className="flex items-start gap-2">
+          <div className="flex items-start gap-2 p-2.5 rounded-xl bg-violet-500/10 border border-violet-500/20">
             <Sparkles className="w-3.5 h-3.5 text-violet-400 mt-0.5 shrink-0" />
-            <p className="text-xs text-white/70 leading-relaxed">{aiText}</p>
+            <p className="text-xs text-white/70 leading-relaxed italic">{aiText}</p>
           </div>
-          <p className="text-[10px] text-white/20 uppercase tracking-widest">
+          <p className="text-[9px] font-black uppercase tracking-widest text-white/20 px-1">
             Saved to highlights
           </p>
         </div>
@@ -356,6 +431,10 @@ function CommentBubble({
   setReplyDraft,
   postReply,
   posting,
+  deleteComment,
+  deleting,
+  annotation,
+  highlightId,
 }: {
   comment: HighlightComment;
   allComments: HighlightComment[];
@@ -368,6 +447,10 @@ function CommentBubble({
   setReplyDraft: (s: string) => void;
   postReply: (parentCommentId: string) => void;
   posting: boolean;
+  deleteComment: (commentId: string) => void;
+  deleting: boolean;
+  annotation: AnnotationAttribution | null | undefined;
+  highlightId: string;
 }) {
   const cid = comment.id ?? "";
   const childComments = repliesToParent(allComments, cid);
@@ -376,100 +459,136 @@ function CommentBubble({
   const showReplyBox = replyingToId === cid;
 
   return (
-    <div
-      className={cn(
-        "flex flex-col gap-2 min-w-0",
-        depth > 0 && "mt-1 pt-2 border-t border-white/[0.06]",
-      )}
-    >
-      <div
-        className={cn(
-          "rounded-xl p-3 text-xs leading-relaxed transition-all duration-200",
-          comment.type === "ai"
-            ? "bg-violet-500/10 border border-violet-500/20 text-violet-200"
-            : "bg-amber-500/10 border border-amber-500/20 text-amber-200",
-          repliesOpen && hasReplies && "shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]",
-        )}
-      >
-        <div className="flex items-center gap-1.5 mb-1.5 opacity-60">
-          {comment.type === "ai" ? (
-            <Bot className="w-3 h-3 shrink-0" />
-          ) : (
-            <MessageSquare className="w-3 h-3 shrink-0" />
+    <div className={cn("flex flex-col", depth > 0 ? "mt-3" : "mt-1")}>
+      <div className="group/bubble flex gap-3">
+        <StudioRoboAvatar
+          seed={stableAvatarSeedForComment(
+            comment,
+            `comment-${comment.id}`,
+            annotation,
           )}
-          <span className="text-[9px] font-black uppercase tracking-widest truncate">
-            {comment.type === "ai"
-              ? "AI Review"
-              : [comment.author ?? "You", comment.role].filter(Boolean).join(" · ")}
-          </span>
-        </div>
-        <p className="whitespace-pre-wrap break-words">{comment.text}</p>
+          size="sm"
+          className="mt-0.5"
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <div className="flex items-baseline gap-1.5 min-w-0 overflow-hidden">
+              <span
+                className={cn(
+                  "text-[9px] font-black uppercase tracking-widest truncate",
+                  comment.type === "ai" ? "text-violet-300" : "text-cyan-300",
+                )}
+              >
+                {comment.type === "ai"
+                  ? "AI"
+                  : commentAuthorLabel(comment) || "User"}
+              </span>
+              <span className="text-[9px] text-white/20 shrink-0">•</span>
+              <span className="text-[9px] font-medium text-white/30 whitespace-nowrap shrink-0">
+                {new Date(comment.createdAt).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+            </div>
+            <div className="flex items-center gap-1 opacity-0 group-hover/bubble:opacity-100 transition-opacity shrink-0">
+              {comment.inReplyToId && (
+                <button
+                  type="button"
+                  onClick={() => deleteComment(cid)}
+                  disabled={deleting}
+                  className="p-1 rounded-md text-red-400/40 hover:text-red-400 hover:bg-red-400/10 disabled:opacity-40 transition-colors"
+                  title="Delete comment"
+                >
+                  {deleting ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-3 h-3" />
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
 
-        <div className="flex flex-wrap items-center gap-2 mt-2">
-          <button
-            type="button"
-            onClick={() => {
-              setReplyingToId(showReplyBox ? null : cid);
-              if (!showReplyBox) setReplyDraft("");
-            }}
-            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-white/50 hover:text-white/90 hover:bg-white/10 transition-colors"
-          >
-            <Reply className="w-3 h-3" />
-            Reply
-          </button>
-          {hasReplies && (
-            <button
-              type="button"
-              onClick={() => toggleReplies(cid)}
-              className="text-[10px] font-bold uppercase tracking-widest text-sky-300/80 hover:text-sky-200"
-            >
-              {repliesOpen ? "Hide replies" : `Show replies (${childComments.length})`}
-            </button>
-          )}
-        </div>
+          <div className="relative">
+            <p className="text-xs text-white/80 leading-relaxed bg-white/[0.03] border border-white/5 rounded-2xl px-3 py-2">
+              {comment.text}
+            </p>
 
-        {showReplyBox && (
-          <div className="mt-3 flex flex-col gap-2 border-t border-white/10 pt-3">
-            <textarea
-              autoFocus
-              value={replyDraft}
-              onChange={(e) => setReplyDraft(e.target.value)}
-              placeholder="Write a reply…"
-              rows={2}
-              disabled={posting}
-              className="w-full rounded-xl bg-white/5 border border-white/10 text-white/80 text-xs p-2.5 resize-none placeholder:text-white/25 focus:outline-none focus:border-white/20 disabled:opacity-50"
-            />
-            <div className="flex justify-end gap-2">
+            <div className="mt-1.5 flex items-center gap-3 px-1">
               <button
                 type="button"
                 onClick={() => {
-                  setReplyingToId(null);
-                  setReplyDraft("");
+                  setReplyingToId(showReplyBox ? null : cid);
+                  if (!showReplyBox) setReplyDraft("");
                 }}
-                className="px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-white/40 hover:text-white/70"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={posting || !replyDraft.trim()}
-                onClick={() => postReply(cid)}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-sky-500/20 border border-sky-400/30 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-sky-200 hover:bg-sky-500/30 disabled:opacity-40"
-              >
-                {posting ? (
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                ) : (
-                  <Send className="w-3 h-3" />
+                className={cn(
+                  "flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest transition-colors",
+                  showReplyBox
+                    ? "text-cyan-400"
+                    : "text-white/40 hover:text-white/70",
                 )}
-                Send
+              >
+                <Reply className="w-3 h-3" />
+                Reply
               </button>
+              {hasReplies && (
+                <button
+                  type="button"
+                  onClick={() => toggleReplies(cid)}
+                  className="text-[9px] font-black uppercase tracking-widest text-white/30 hover:text-white/60 transition-colors"
+                >
+                  {repliesOpen
+                    ? `Hide ${childComments.length}`
+                    : `Show ${childComments.length} ${childComments.length === 1 ? "reply" : "replies"}`}
+                </button>
+              )}
             </div>
           </div>
-        )}
+
+          {showReplyBox && (
+            <div className="mt-3 space-y-2 pl-2">
+              <textarea
+                autoFocus
+                value={replyDraft}
+                onChange={(e) => setReplyDraft(e.target.value)}
+                placeholder="Type your reply..."
+                rows={2}
+                disabled={posting}
+                className="w-full resize-none rounded-xl border border-cyan-500/30 bg-cyan-500/5 px-3 py-2 text-xs text-white/90 placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-cyan-500/50 disabled:opacity-50"
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReplyingToId(null);
+                    setReplyDraft("");
+                  }}
+                  className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-white/40 hover:text-white/70 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={posting || !replyDraft.trim()}
+                  onClick={() => postReply(cid)}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-500/20 border border-cyan-400/30 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-cyan-100 hover:bg-cyan-500/30 disabled:opacity-40 transition-all active:scale-95"
+                >
+                  {posting ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Send className="w-3 h-3" />
+                  )}
+                  {posting ? "Sending" : "Send Reply"}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {hasReplies && repliesOpen && (
-        <div className="ml-2 pl-3 border-l border-white/15 flex flex-col gap-2">
+        <div className="mt-1 space-y-1 pl-9">
           {childComments.map((child) => (
             <CommentBubble
               key={child.id}
@@ -484,6 +603,10 @@ function CommentBubble({
               setReplyDraft={setReplyDraft}
               postReply={postReply}
               posting={posting}
+              deleteComment={deleteComment}
+              deleting={deleting}
+              annotation={annotation}
+              highlightId={highlightId}
             />
           ))}
         </div>
@@ -499,13 +622,15 @@ function HighlightDetail({
   onClose,
   annotation,
   onHighlightUpdated,
+  isDeleting = false,
 }: {
   highlight: Highlight;
   anchor: { leftPct: number; topPct: number; placement: "right" | "below" };
   onDelete: () => void;
   onClose: () => void;
-  annotation: AnnotationAttribution | null;
+  annotation: AnnotationAttribution | null | undefined;
   onHighlightUpdated: (h: Highlight) => void;
+  isDeleting?: boolean;
 }) {
   const [expandedThreads, setExpandedThreads] = useState<Record<string, boolean>>(
     {},
@@ -513,6 +638,7 @@ function HighlightDetail({
   const [replyingToId, setReplyingToId] = useState<string | null>(null);
   const [replyDraft, setReplyDraft] = useState("");
   const [posting, setPosting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const toggleReplies = useCallback((commentId: string) => {
     setExpandedThreads((prev) => ({
@@ -520,6 +646,29 @@ function HighlightDetail({
       [commentId]: !prev[commentId],
     }));
   }, []);
+
+  const deleteComment = useCallback(
+    async (commentId: string) => {
+      setDeleting(true);
+      try {
+        const res = await fetch(
+          withApiBase(`/api/highlights/${encodeURIComponent(highlight.id)}/comments/${encodeURIComponent(commentId)}`),
+          {
+            method: "DELETE",
+          },
+        );
+        const data = await res.json();
+        if (data.success && data.highlight) {
+          onHighlightUpdated(normalizeHighlight(data.highlight));
+        }
+      } catch {
+        // keep state
+      } finally {
+        setDeleting(false);
+      }
+    },
+    [highlight.id, onHighlightUpdated],
+  );
 
   const postReply = useCallback(
     async (parentCommentId: string) => {
@@ -567,9 +716,9 @@ function HighlightDetail({
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, x: 8, y: -4 }}
-      animate={{ opacity: 1, x: 0, y: 0 }}
-      exit={{ opacity: 0, x: 8, y: -4 }}
+      initial={{ opacity: 0, scale: 0.97, y: 4 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.97, y: 4 }}
       className="absolute w-80 max-w-[min(20rem,calc(100vw-2rem))] rounded-2xl border border-white/15 bg-black/90 backdrop-blur-xl shadow-2xl p-4 z-50 flex flex-col gap-3"
       style={{
         left: `${anchor.leftPct}%`,
@@ -580,24 +729,30 @@ function HighlightDetail({
     >
       {/* caret */}
       {anchor.placement === "right" ? (
-        <div className="absolute -left-2 top-4 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-white/25" />
+        <div className="absolute -left-2 top-4 w-0 h-0 border-t-8 border-b-8 border-r-8 border-t-transparent border-b-transparent border-r-white/15" />
       ) : (
-        <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-8 border-r-8 border-b-8 border-l-transparent border-r-transparent border-b-white/25" />
+        <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-8 border-r-8 border-b-8 border-l-transparent border-r-transparent border-b-white/15" />
       )}
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] font-black uppercase tracking-widest text-white/40">
-          Highlight
+      <div className="flex items-center justify-between px-0.5">
+        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30">
+          Annotation
         </span>
         <div className="flex items-center gap-1">
           <button
             onClick={onDelete}
-            className="p-1.5 rounded-lg text-red-400/60 hover:text-red-400 hover:bg-red-500/10 transition-all"
+            disabled={isDeleting}
+            className="p-1 rounded text-red-400/40 hover:text-red-400 hover:bg-red-400/10 transition-all disabled:opacity-40"
+            title="Delete comment"
           >
-            <Trash2 className="w-3.5 h-3.5" />
+            {isDeleting ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Trash2 className="w-3.5 h-3.5" />
+            )}
           </button>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-white/30 hover:text-white hover:bg-white/10 transition-all"
+            className="p-1 rounded text-white/30 hover:text-white hover:bg-white/10 transition-all"
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -625,6 +780,10 @@ function HighlightDetail({
             setReplyDraft={setReplyDraft}
             postReply={postReply}
             posting={posting}
+            deleteComment={deleteComment}
+            deleting={deleting}
+            annotation={annotation}
+            highlightId={highlight.id}
           />
         ))}
       </div>
@@ -1069,11 +1228,20 @@ export function PdfAnnotator({
     [pending, saveHighlight, dismissPending],
   );
 
+  const [deletingHighlightId, setDeletingHighlightId] = useState<string | null>(
+    null,
+  );
+
   // ── Delete highlight ─────────────────────────────────────────────────────────
   const deleteHighlight = useCallback(async (id: string) => {
-    await fetch(withApiBase(`/api/highlights/${id}`), { method: "DELETE" });
-    setHighlights((h) => h.filter((x) => x.id !== id));
-    setActiveHighlight(null);
+    setDeletingHighlightId(id);
+    try {
+      await fetch(withApiBase(`/api/highlights/${id}`), { method: "DELETE" });
+      setHighlights((h) => h.filter((x) => x.id !== id));
+      setActiveHighlight(null);
+    } finally {
+      setDeletingHighlightId(null);
+    }
   }, []);
 
   // ── Render ───────────────────────────────────────────────────────────────────
@@ -1206,6 +1374,7 @@ export function PdfAnnotator({
               onHighlightUpdated={updateHighlightInState}
               onDelete={() => deleteHighlight(activeHighlight.id)}
               onClose={() => setActiveHighlight(null)}
+              isDeleting={deletingHighlightId === activeHighlight.id}
             />
           )}
         </AnimatePresence>
