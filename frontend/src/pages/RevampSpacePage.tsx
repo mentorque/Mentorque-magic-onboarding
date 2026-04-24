@@ -3,7 +3,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { GradientBackground } from "@/components/GradientBackground";
 import { API_BASE_URL, withApiBase } from "@/lib/apiBaseUrl";
 import { ComparisonView } from "@/components/resume/ComparisonView";
-import type { RevampResult } from "@/lib/resumeRevampTypes";
+import type { RevampResult, RevampQuestion } from "@/lib/resumeRevampTypes";
 import type { AnnotationAttribution } from "@/components/resume/PdfAnnotator";
 
 const LS_ACCESS_TOKEN = "onboardingAccessToken";
@@ -37,6 +37,8 @@ export function RevampSpacePage() {
   const [revampResult, setRevampResult] = useState<RevampResult | null>(null);
   const [annotation, setAnnotation] = useState<RevampSpaceAnnotation | null>(null);
   const [accessToken, setAccessToken] = useState("");
+  const [aiQuestions, setAiQuestions] = useState<RevampQuestion[] | null>(null);
+  const [questionnaireAnswers, setQuestionnaireAnswers] = useState<Record<string, string> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -71,6 +73,8 @@ export function RevampSpacePage() {
           submission?: {
             parsedResume?: unknown;
             revampResult?: RevampResult | null;
+            aiQuestions?: RevampQuestion[] | null;
+            questionnaireAnswers?: Record<string, string> | null;
           } | null;
           annotation?: RevampSpaceAnnotation;
         };
@@ -87,6 +91,10 @@ export function RevampSpacePage() {
         if (cancelled) return;
         setParsedResume(sub.parsedResume);
         setRevampResult(sub.revampResult);
+        if (Array.isArray(sub.aiQuestions)) setAiQuestions(sub.aiQuestions);
+        if (sub.questionnaireAnswers && typeof sub.questionnaireAnswers === "object") {
+          setQuestionnaireAnswers(sub.questionnaireAnswers as Record<string, string>);
+        }
         if (data.annotation) {
           setAnnotation(data.annotation);
         } else if (typeof window !== "undefined") {
@@ -198,6 +206,8 @@ export function RevampSpacePage() {
           apiBaseUrl={API_BASE_URL}
           annotation={pdfAnnotation}
           authToken={accessToken}
+          aiQuestions={aiQuestions}
+          questionnaireAnswers={questionnaireAnswers}
         />
       </div>
     </RevampSpaceShell>

@@ -51,6 +51,7 @@ import type {
   ChangeSection,
   ChangeCategory,
   RevampResult,
+  RevampQuestion,
 } from "@/lib/resumeRevampTypes";
 import { withApiBase } from "@/lib/apiBaseUrl";
 import {
@@ -89,6 +90,10 @@ interface ComparisonViewProps {
   authToken?: string;
   /** Called when admin "Make Changes" produces a new revamp payload + PDF. */
   onRevampResultApplied?: (next: RevampResult) => void;
+  /** AI-generated questions shown in the Questionnaire tab. */
+  aiQuestions?: RevampQuestion[] | null;
+  /** Map of question ID → answer string (including JSON-encoded mcq_multi answers). */
+  questionnaireAnswers?: Record<string, string> | null;
 }
 
 interface StudioThreadItem {
@@ -1525,6 +1530,129 @@ function SectionAnalysis({
   );
 }
 
+// ─── Questionnaire Tab ────────────────────────────────────────────────────────────
+
+const SECTION_LABELS: Record<string, string> = {
+  experience: "Experience",
+  skills: "Skills",
+  summary: "Summary",
+  general: "General",
+  transition: "Career Transition",
+  achievements: "Achievements",
+};
+
+function parseAnswer(raw: string | undefined, q: RevampQuestion): string {
+  if (!raw?.trim()) return "";
+  if (q.questionType === "mcq_multi" || q.questionType === "mcq") {
+    try {
+      const parsed = JSON.parse(raw) as { selected?: string[]; otherText?: string; detail?: string };
+      const parts: string[] = [];
+      if (Array.isArray(parsed.selected) && parsed.selected.length > 0) {
+        parts.push(parsed.selected.join(", "));
+      }
+      if (parsed.otherText?.trim()) parts.push(`Other: ${parsed.otherText.trim()}`);
+      if (parsed.detail?.trim()) parts.push(`Note: ${parsed.detail.trim()}`);
+      return parts.join(" · ") || raw;
+    } catch {
+      return raw;
+    }
+  }
+  return raw;
+}
+
+function QuestionnaireTab({
+  aiQuestions,
+  questionnaireAnswers,
+}: {
+  aiQuestions: RevampQuestion[] | null | undefined;
+  questionnaireAnswers: Record<string, string> | null | undefined;
+}) {
+  const questions = aiQuestions ?? [];
+  const answers = questionnaireAnswers ?? {};
+
+  if (questions.length === 0) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center py-20 gap-3">
+        <MessageSquare className="h-8 w-8 text-white/20" />
+        <p className="text-sm text-white/40">No questionnaire data available.</p>
+      </div>
+    );
+  }
+
+  // Group by section
+  const sections = Array.from(new Set(questions.map((q) => q.section)));
+
+  return (
+    <div className="space-y-6 pb-10">
+      {/* Header */}
+      <div className="flex items-end justify-between px-2 shrink-0">
+        <div className="space-y-2">
+          <div className="flex items-center gap-4">
+            <div className="px-2.5 py-1.5 rounded-lg bg-violet-500/20 shadow-[0_0_15px_rgba(139,92,246,0.2)] flex items-center gap-2">
+              <MessageSquare className="w-3.5 h-3.5 text-violet-400" />
+              <span className="text-xs font-bold uppercase tracking-widest text-violet-300">
+                Questionnaire
+              </span>
+            </div>
+            <h2 className="text-3xl font-bold tracking-tight text-white">
+              Q&amp;A Answers
+            </h2>
+          </div>
+          <p className="text-white/40 text-sm font-medium">
+            Candidate responses used to personalize this revamp
+          </p>
+        </div>
+      </div>
+
+      {sections.map((section) => {
+        const sectionQs = questions.filter((q) => q.section === section);
+        return (
+          <div key={section} className="space-y-3">
+            <p className="px-1 text-[10px] font-black uppercase tracking-widest text-white/35">
+              {SECTION_LABELS[section] ?? section}
+            </p>
+            <div className="space-y-3">
+              {sectionQs.map((q, idx) => {
+                const raw = answers[q.id];
+                const answer = parseAnswer(raw, q);
+                return (
+                  <div
+                    key={q.id}
+                    className="rounded-2xl border border-white/8 bg-white/[0.03] p-4 space-y-2"
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-500/20 text-[10px] font-black text-violet-300">
+                        {idx + 1}
+                      </span>
+                      <p className="text-sm font-semibold text-white/90 leading-snug">
+                        {q.question}
+                      </p>
+                    </div>
+                    {q.hint && (
+                      <p className="pl-7 text-[11px] text-white/35 leading-snug italic">
+                        {q.hint}
+                      </p>
+                    )}
+                    <div className="pl-7">
+                      {answer ? (
+                        <p className="text-sm text-white/75 leading-relaxed whitespace-pre-wrap">
+                          {answer}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-white/25 italic">No answer provided</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────────
 
 export function ComparisonView({
@@ -1536,8 +1664,10 @@ export function ComparisonView({
   annotation = null,
   authToken = "",
   onRevampResultApplied,
+  aiQuestions = null,
+  questionnaireAnswers = null,
 }: ComparisonViewProps) {
-  const [activeTab, setActiveTab] = useState<"analysis" | "studio">("analysis");
+  const [activeTab, setActiveTab] = useState<"analysis" | "studio" | "questionnaire">("analysis");
   const [studioThreads, setStudioThreads] = useState<StudioThreadItem[]>([]);
   const [studioReplyOpenKey, setStudioReplyOpenKey] = useState<string | null>(
     null,
@@ -2411,7 +2541,7 @@ export function ComparisonView({
         <div className="overflow-y-auto overflow-x-hidden flex flex-col gap-4 pr-6 custom-scrollbar h-full">
           {/* Tabs */}
           <div className="sticky top-0 z-20 pt-2 pb-3">
-            <div className="w-full grid grid-cols-2 rounded-2xl border border-blue-400/20 bg-blue-950/20 backdrop-blur-xl p-1 shadow-[0_8px_30px_rgba(0,0,0,0.35)]">
+            <div className="w-full grid grid-cols-3 rounded-2xl border border-blue-400/20 bg-blue-950/20 backdrop-blur-xl p-1 shadow-[0_8px_30px_rgba(0,0,0,0.35)]">
               <button
                 onClick={() => setActiveTab("analysis")}
                 className={cn(
@@ -2433,6 +2563,17 @@ export function ComparisonView({
                 )}
               >
                 Resume Studio
+              </button>
+              <button
+                onClick={() => setActiveTab("questionnaire")}
+                className={cn(
+                  "px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
+                  activeTab === "questionnaire"
+                    ? "bg-white/12 border border-white/20 text-white shadow-[0_0_20px_rgba(125,211,252,0.15)]"
+                    : "text-white/50 hover:text-white/80 hover:bg-white/[0.04]",
+                )}
+              >
+                Q&amp;A
               </button>
             </div>
           </div>
@@ -2552,7 +2693,7 @@ export function ComparisonView({
                 <ArrowRight className="w-5 h-5" />
               </button>
             </>
-          ) : (
+          ) : activeTab === "studio" ? (
             <div className="space-y-8">
               {/* Studio Header */}
               <div className="flex items-end justify-between px-2 shrink-0">
@@ -2804,6 +2945,12 @@ export function ComparisonView({
                 </div>
               </div>
             </div>
+          ) : (
+            /* ── Questionnaire tab ───────────────────────────────────────── */
+            <QuestionnaireTab
+              aiQuestions={aiQuestions}
+              questionnaireAnswers={questionnaireAnswers}
+            />
           )}
         </div>
       </div>
