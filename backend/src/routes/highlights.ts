@@ -263,6 +263,63 @@ router.delete("/:id", async (req: Request, res: Response) => {
   }
 });
 
+// ─── DELETE /api/highlights/:highlightId/comments/:commentId ─────────────────
+router.delete("/:highlightId/comments/:commentId", async (req: Request, res: Response) => {
+  const highlightId = typeof req.params.highlightId === "string" 
+    ? req.params.highlightId 
+    : req.params.highlightId?.[0];
+  const commentId = typeof req.params.commentId === "string" 
+    ? req.params.commentId 
+    : req.params.commentId?.[0];
+
+  if (!highlightId || !commentId) {
+    return res.status(400).json({ 
+      success: false, 
+      message: "highlightId and commentId are required." 
+    });
+  }
+
+  try {
+    const [row] = await db
+      .select()
+      .from(highlightsTable)
+      .where(eq(highlightsTable.id, highlightId));
+    
+    if (!row) {
+      return res.status(404).json({ success: false, message: "Highlight not found." });
+    }
+
+    const existing = Array.isArray(row.comments) ? row.comments : [];
+    
+    const commentToDelete = existing.find((c) => c.id === commentId);
+    if (!commentToDelete) {
+      return res.status(404).json({ success: false, message: "Comment not found." });
+    }
+
+    if (!commentToDelete.inReplyToId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Cannot delete root comments. Delete the entire highlight instead." 
+      });
+    }
+
+    const updatedComments = existing.filter((c) => c.id !== commentId);
+
+    const [updated] = await db
+      .update(highlightsTable)
+      .set({
+        comments: updatedComments,
+        updatedAt: new Date(),
+      })
+      .where(eq(highlightsTable.id, highlightId))
+      .returning();
+
+    return res.json({ success: true, highlight: updated });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // ─── PATCH /api/highlights/:id/resolve ─────────────────────────────────────────
 router.patch("/:id/resolve", async (req: Request, res: Response) => {
   const id = typeof req.params.id === "string" ? req.params.id : req.params.id?.[0];
