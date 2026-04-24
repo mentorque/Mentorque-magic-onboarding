@@ -2223,6 +2223,52 @@ export function ComparisonView({
                 )}
               </div>
 
+              {/* Pending Action Items — admin always sees them; users see when sentToUser=true */}
+              {actionItems.items.length > 0 && (isAdminAnnotator || actionItems.sentToUser) && (
+                <div className="shrink-0 rounded-2xl border border-cyan-400/25 bg-cyan-950/30 p-4 space-y-3">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-cyan-400/20">
+                      <Check className="h-3 w-3 text-cyan-300" />
+                    </span>
+                    <p className="text-xs font-black uppercase tracking-widest text-cyan-100/90">
+                      Pending Action Items
+                    </p>
+                    {isAdminAnnotator && (
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${actionItems.sentToUser ? "bg-cyan-500/20 text-cyan-200" : "bg-white/10 text-white/40"}`}>
+                        {actionItems.sentToUser ? "Sent to user" : "Not sent yet"}
+                      </span>
+                    )}
+                    {actionItems.sentAt && (
+                      <span className="ml-auto text-[10px] text-white/35">
+                        {new Date(actionItems.sentAt).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    {actionItems.items.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-start gap-2 rounded-lg border border-white/8 bg-white/[0.03] px-3 py-2"
+                      >
+                        <span className="mt-0.5 shrink-0 rounded-full border border-cyan-300/40 bg-cyan-500/10 p-0.5">
+                          <Check className="h-3 w-3 text-cyan-200" />
+                        </span>
+                        <p className="text-xs text-white/80 leading-snug">{item.text}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {toolsEditUrl && (
+                    <a
+                      href={toolsEditUrl}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-300/40 bg-cyan-500/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-cyan-100 hover:bg-cyan-500/25"
+                    >
+                      <ArrowUpRight className="h-3.5 w-3.5" />
+                      Edit Resume
+                    </a>
+                  )}
+                </div>
+              )}
+
               {/* Global Analysis Modules */}
               <div className="grid grid-cols-1 gap-6 shrink-0">
                 <MetricsCard
